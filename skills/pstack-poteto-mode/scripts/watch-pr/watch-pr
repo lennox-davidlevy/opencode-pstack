@@ -1,0 +1,11 @@
+#!/usr/bin/env -S bun --no-install
+import { ensureDependenciesInstalled } from "../bootstrap.ts";
+
+try {
+  ensureDependenciesInstalled();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+const { main } = await import("./cli.ts");
+process.exitCode = await main(process.argv.slice(2));

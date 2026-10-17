@@ -1,0 +1,12 @@
+{
+  "name": "opencode-pstack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js && python3 scripts/test_pstack_plan.py && python3 scripts/test_check_runtime.py",
+    "check": "tsc --noEmit && python3 scripts/sync_contract.py --check"
+  },
+  "dependencies": { "@opencode/plugin": "2.0.31" },
+  "devDependencies": { "typescript": "5.9.3", "@types/node": "24.10.1" }
+}

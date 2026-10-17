@@ -1,7 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "engineer",
+  "default_agent": "poteto",
+  "skills": ["./skills"],
+  "plugins": ["./plugins/pstack"],
   "permissions": [
+    { "action": "skill", "resource": "*", "effect": "deny" },
+    { "action": "skill", "resource": "pstack-*", "effect": "allow" },
+    { "action": "pstack_history", "resource": "*", "effect": "allow" },
+    { "action": "pstack_schedule", "resource": "*", "effect": "ask" },
+    { "action": "pstack_wakeup", "resource": "*", "effect": "allow" },
+    { "action": "pstack_worker", "resource": "*", "effect": "ask" },
+    { "action": "pstack_worker_review", "resource": "*", "effect": "ask" },
+    { "action": "pstack_terminal", "resource": "*", "effect": "ask" },
     { "action": "execute", "resource": "*", "effect": "deny" },
     { "action": "browser", "resource": "*", "effect": "deny" },
     { "action": "playwright_*", "resource": "*", "effect": "deny" },

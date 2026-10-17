@@ -1,70 +1,105 @@
-# Engineer Agents for OpenCode
+# OpenCode pstack
 
-Work in progress. I've found less is more with modern frontier models: many skills I used to rely on are no longer beneficial or efficient. This is the setup I use daily.
+An OpenCode V2 integration of pstack engineering workflows. **poteto** coordinates
+implementation, review, and investigation using native agents and skills. The
+runtime adds scoped history, bounded schedules, container workers, artifact
+review, and interactive terminals.
 
-A typical session:
+## Contents
 
-1. Start from a template repository with the file structure I like and the dependencies I expect to use.
-2. Build the foundation, by hand or with the harness.
-3. Design new features with the `design` primary agent.
-4. Hand off to `engineer` (the heavier model) for implementation.
-5. Subagents handle research and exploration; Context7 MCP covers library docs, playwright for UIs.
+- [Prerequisites](#prerequisites)
+- [Install](#install)
+- [Use](#use)
+- [Agents](#agents)
+- [Verify](#verify)
+- [Limits and documentation](#limits-and-documentation)
 
-- **`design` (Sol - Primary)** turns uncertain ideas into concise decisions and implementation briefs.
-- **`engineer` (Astra - Primary)** owns implementation, debugging, refactoring, validation, and delivery.
-- **`reviewer` (Astra - Subagent)** independently reviews a bounded change.
-- **`explore` (Luna - Subagent)** maps repositories read-only.
-- **`researcher` (Terra - Subagent)** retrieves external primary-source evidence read-only.
+## Prerequisites
 
-Skills add narrow workflows on demand.
+- **OpenCode 2.0.32**. Other versions require validation.
+- **Node.js 24+**, npm, Git, and Python 3.
+- Linux or macOS. Clean-install verification has run on Linux.
+- An OpenCode provider connection with access to the configured model.
+- **Docker CLI**. Container workers also need a running daemon and worker image.
+
+All four agents default to `openai/gpt-6-astra#high`. Change their Markdown
+frontmatter to use another available model. The tested plugin SDK is 2.0.31.
+
+Optional browser workflows need Chrome for Playwright. Bundled orchestration
+scripts need Bun and explicit dependency setup. Forge workflows also need
+authenticated `gh` access.
 
 ## Install
 
-Clone the repository as a project's `.opencode` directory:
+From your target project, install the bundle into `.opencode/`. If that directory
+already exists, merge deliberately instead of overwriting it.
 
 ```sh
-git clone git@github.com:lennox-davidlevy/opencode-engineer-agents.git .opencode
+git clone https://github.com/lennox-davidlevy/opencode-pstack.git .opencode
+cd .opencode
+npm ci --ignore-scripts
+python3 scripts/check_runtime.py
+docker build -f container/Dockerfile -t opencode-pstack-worker:0.1.0 .
+cd ..
 ```
 
-The configuration targets OpenCode V2. Confirm the installed models include:
+Skip the image build if you will not use container workers. The prerequisite
+checker checks CLI versions, not Docker readiness or provider authentication.
+Installation does not change global configuration or copy credentials.
+
+## Use
+
+Start OpenCode from your target project:
 
 ```sh
-opencode2 models
+opencode run --agent poteto --model openai/gpt-6-astra#high "Your task"
 ```
 
-And choose the models that work for you.
+For existing sessions, select `poteto` and the desired model explicitly.
+Use `@pstack-poteto-help` for workflows and `@pstack-setup-pstack` for model setup.
 
-## Authority and safety
+## Agents
 
-- Ordinary `git commit` and `git push` commands are denied. Personal preference, I prefer to control the git worflow, even if it is a bit less efficient.
-- Destructive commands (file deletion, git reset/clean, `sudo`, Docker pruning etc) asks for approval.
-- `engineer` performs production work. Subagents are limited to exploration, research, and independent review.
-- Handoffs carry context.
+Native Markdown definitions live in `agents/`, with model, mode, and permissions
+in frontmatter:
 
-## Code Mode and connected tools
+| Agent | Role |
+| --- | --- |
+| `poteto` | Primary coordinator |
+| `poteto-agent` | Bounded implementation |
+| `poteto-reviewer` | Read-only review |
+| `poteto-investigator` | Connected-source investigation |
 
-| Capability | engineer | design | researcher | explore | reviewer |
-|---|---|---|---|---|---|
-| Code Mode (`execute`) | allow | allow | allow | deny | allow |
-| Playwright MCP (headless) | allow | allow | deny | deny | deny |
-| Desktop browser | deny | deny | deny | deny | deny |
-| Web search/fetch | allow | allow | allow | deny | deny |
-| Context7 | allow | deny | allow | deny | deny |
+Shared settings live in `opencode.json`. For development in this repository,
+`.opencode/agents → ../agents` enables discovery without duplicate definitions.
+Preserve that relative symlink. OpenCode still merges applicable global settings.
 
+## Verify
 
-Built-in `build` and `plan` are disabled because `engineer` and `design` replace them. Snapshots and compaction retain runtime defaults; formatting, watcher exclusions, and project-specific tools belong to consuming projects.
+Run from the bundle directory:
 
-## Skills
+```sh
+npm run check
+npm test
+python3 scripts/check_permissions.py
+PSTACK_PORTABILITY_TEST=1 node --test tests/portability.test.js
+```
 
+The portability test uses a separate server and clean user configuration. It
+reuses installed dependencies, disables optional MCPs, and makes no model calls.
+The permission checker creates test sessions but does not execute tested actions.
+Use `PSTACK_CONTAINER_TEST=1 npm test` for container integration checks.
 
-Useful skills, some from [Matt Pocock](https://github.com/mattpocock/skills), [Kit Langton](https://github.com/kitlangton/skills), myself, twitter.  All of these I use regularly and only where I see good results relatively consistently:
+## Limits and documentation
 
-- `code-review` for parallel Spec and Standards review in fresh contexts
-- `diagnosing-bugs` for evidence-led debugging
-- `effect` for Effect v4 TypeScript implementation patterns and reference guides
-- `good-css` for modern CSS patterns across stylesheets, utility classes, and CSS-in-JS, with focused reference guides
-- `research` for primary-source investigation
-- `handoff` for compact cross-session context
-- `prototype` for disposable design evidence
-- `query-okf` and `curate-okf` for the Open Knowledge Format
-- `test-audit` for test authoring gates, evidence-led deletion, and full subsystem test-pruning campaigns
+- Full upstream parity is unfinished. Hosted Bugbot, cloud workers, and desktop
+  or mobile drivers are not included.
+- Container execution is offline and starts from a committed ref. Uncommitted
+  parent changes are excluded. Model requests use the host's existing sign-in.
+- Runtime API transport currently targets the shared local OpenCode service.
+- Agents do not commit or push. External writes and destructive actions require
+  specific approval.
+
+See the [portability and parity guide](docs/pstack-port.md),
+[container setup](container/README.md), and [work plan](docs/parity-plan.md).
+The upstream MIT license and import provenance are preserved in [vendor/pstack](vendor/pstack/).

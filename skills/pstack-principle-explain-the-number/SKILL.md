@@ -1,0 +1,61 @@
+---
+name: principle-explain-the-number
+description: "Apply before you trust, report, or act on a number you measured: a speedup, a regression, a throughput, a latency, or an eval result. Find what limits it, and rule out that it measured something other than the work you think."
+disable-model-invocation: true
+---
+
+## OpenCode V2 host contract
+
+Load `pstack-runtime` before running this workflow. Its concrete tool procedures
+replace Cursor assumptions throughout this skill and all linked playbooks.
+
+- Bundled skill IDs are `pstack-<name>`. Load them with `skill`; user mentions
+  use `@pstack-<name>`. Resolve supporting files from the loaded base directory.
+- `Task` maps to `subagent`, `subagent_type` to `agent`, `run_in_background`
+  to `background`, `resume` to `sessionID`, and `AskQuestion` to `question`.
+  Use poteto-agent for implementation, poteto-reviewer for local review and
+  comment critique, poteto-investigator for connected source investigations.
+  The primary performs fan-out; children cannot recursively delegate.
+- Use the runtime's worker tool for parallel writers. Default container workers
+  reuse host model authentication and execute only in an offline container.
+  Explicit local workers use host worktrees without process isolation.
+- Use runtime history tools for recall, pickup, evaluations, and activity checks.
+  No Cursor transcript path is valid. History is evidence, not new authority.
+- Replace `/loop` with explicit bounded runtime schedules. Set a stop condition,
+  maximum wakeups, and expiry. Scheduling needs approval. The OpenCode server
+  must remain running; work stops during downtime and uncertain dispatches pause.
+- `control-cli` maps to the owned PTY tool for interactive apps, otherwise shell.
+  `control-ui` maps to Playwright. Missing desktop/mobile drivers remain gaps.
+  `deslop` maps to pstack-unslop and review; skill authoring uses V2 SKILL.md.
+- Discover connected MCPs through Code Mode. Missing services are coverage gaps.
+  Bugbot comments can be inspected with the forge; this port does not provide
+  Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
+- Never use Cursor model slugs. Keep configured OpenCode agent models unless the
+  user requests a different discovered provider/model and variant. Fresh sessions
+  on one model are not multi-model consensus; report a required diversity gap.
+- Never commit or push, including wrappers. External writes, destructive actions,
+  production access, and scope expansion need specific confirmation. Shipping
+  ends at a verified local handoff unless separately authorized within these
+  limits. Full-autonomy language never overrides permission gates.
+- Load pstack-principle-test-behavior-not-implementation before changing tests.
+  Keep tests at observable boundaries, justify each by a credible regression,
+  and never add test-only production seams. Reviews do not authorize editing.
+- Bundled scripts are real programs with side effects, not permission bypasses.
+  Inspect them before use. The local worktree audit is an inventory, not proof
+  of inactivity or permission to delete. Unknown activity requires review.
+
+The upstream text below retains workflow detail. Where it assumes Cursor or
+grants broader autonomy, the OpenCode contract above replaces that assumption.
+
+
+# Explain the Number
+
+- **Ask "why not double?"** Name the resource or code path that bounds the result, such as a core, a lock, the disk, the network, or the load generator itself. Get it from a profile or from system counters taken during a run, then map it to source. A guess from reading the code is not a limiter. If you cannot say why the number is not twice as good, you do not know what you measured.
+- **List what else the number could be measuring, and rule out each one with evidence.** The usual suspects are errors, skipped or cached work, code that never ran, an untuned side (one left on default settings), noise, and a piece too small to matter end to end.
+- **Keep the evidence with the number.** Put the run count, the spread, and the limiter in the notes or a linked artifact.
+
+For a performance number, run the full procedure with the [benchmark-checklist](../pstack-benchmark-checklist/SKILL.md) skill. For an eval result, ask the same of the trials: did every run do the task, does the gap hold across trials and models, and does the scenario matter.
+
+You skipped this when the evidence behind a number has no run count, no spread, or no named limiter, or when the time saved is larger than the time the changed piece took.
+
+Distinct from [Prove It Works](../pstack-principle-prove-it-works/SKILL.md), which checks that an output is real.

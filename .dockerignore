@@ -1,0 +1,14 @@
+**
+!package.json
+!package-lock.json
+!opencode.json
+!container/
+!container/**
+!plugins/
+!plugins/**
+!prompts/
+!prompts/**
+!skills/
+!skills/**
+**/__pycache__/**
+**/node_modules/**
