@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cp, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -14,7 +14,13 @@ const workerRoles = ['poteto', 'poteto-agent', 'poteto-reviewer', 'poteto-invest
 test('clean server loads Markdown roles in development, consuming-project, and local-worker layouts',
   { skip: process.env.PSTACK_PORTABILITY_TEST !== '1', timeout: 180000 }, async t => {
     const root = await makeTempDir('pstack-portability-');
-    t.diagnostic(`Retained isolated installation fixture: ${root}`);
+    t.diagnostic(`Isolated installation fixture ${root}; removed after successful server cleanup`);
+    let server;
+    t.after(async () => {
+      if (!server) return;
+      await server.stop();
+      await rm(root, { recursive: true, force: true });
+    });
     const bundle = join(root, 'bundle');
     await mkdir(bundle);
     for (const path of ['agents', 'plugins', 'skills', 'prompts', 'opencode.json', 'package.json', 'package-lock.json']) {
@@ -34,8 +40,7 @@ test('clean server loads Markdown roles in development, consuming-project, and l
     await mkdir(worker);
     const restrictions = [{ action: 'subagent', resource: '*', effect: 'deny' }];
     await bootstrapLocalWorker(bundle, worker, restrictions);
-    const server = await isolatedOpenCode(root);
-    t.after(() => server.stop());
+    server = await isolatedOpenCode(root, { signal: t.signal });
     const info = await server.api('GET', '/api/info');
     assert.equal(info.version, '2.0.32');
     assert.equal(info.pid, server.pid, 'Requests must reach only the server owned by this test');
@@ -52,10 +57,9 @@ test('clean server loads Markdown roles in development, consuming-project, and l
           if (workerRoles.every(id => agents.some(a => a.id === id))) break;
           await delay(100);
         }
-        await writeFile(join(root, layout + '-agents.json'), JSON.stringify(agents, null, 2));
         const configuration = await server.api('GET', '/api/config' + query);
-        await writeFile(join(root, layout + '-config.json'), JSON.stringify(configuration, null, 2));
         assert.ok(configuration.every(entry => entry.path.startsWith(root + '/')), 'No ambient configuration source may load');
+        await server.verifyLocation(directory);
         assert.equal(configuration.filter(entry => entry.info?.default_agent).at(-1)?.info.default_agent, 'poteto');
         for (const id of workerRoles) {
           const agent = agents.find(a => a.id === id);
@@ -116,9 +120,10 @@ test('clean server loads Markdown roles in development, consuming-project, and l
           await delay(100);
         }
         const agents = (await server.api('GET', '/api/agent' + query)).data;
+        await server.verifyLocation(candidate);
         assert.ok(workerRoles.every(id => !agents.some(agent => agent.id === id)),
           'Broken delivery must not be repaired by the test or hidden by global agents');
       });
     }
-    t.diagnostic(`Separate owned server ${server.endpoint}; no model requests, credentials, or MCP startup; installed dependencies reused.`);
+    t.diagnostic(`Separate owned server ${server.endpoint}; no model requests or credentials; MCP inventory disabled; installed dependencies reused.`);
   });

@@ -8,8 +8,9 @@ import { chmod, cp, link, lstat, mkdir, open, readFile, readdir, readlink, renam
 import { join, resolve } from 'node:path';
 import { captureRepository, workerManifest } from '../plugins/pstack/worker-artifacts.js';
 import { WorkerHistory } from '../plugins/pstack/worker-history.js';
-import { containerOptions, inspectContainer, startContainer } from '../plugins/pstack/containers.js';
+import { containerOptions, inspectContainer } from '../plugins/pstack/containers.js';
 import { makeTempDir } from './helpers/temp.js';
+import { ownedContainers } from './helpers/owned-container.js';
 
 const exec = promisify(execFile);
 const source = resolve(import.meta.dirname, '..');
@@ -17,8 +18,8 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const git = async (directory, args) => (await exec('git', args, { cwd: directory,
   env: { PATH: process.env.PATH, HOME: '/dev/null', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' } })).stdout.trim();
 
-async function fixture() {
-  const parent = await makeTempDir('pstack-artifacts-test-');
+async function fixture(t, resources = ownedContainers(t)) {
+  const parent = resources.directory(await makeTempDir('pstack-artifacts-test-'));
   const directory = join(parent, 'checkout');
   await mkdir(directory);
   await git(directory, ['init', '--quiet']);
@@ -63,7 +64,7 @@ async function changes(f) {
   await git(f.directory, ['add', '--', 'README.md']);
   await writeFile(join(f.directory, 'README.md'), 'working bytes');
   await rename(join(f.directory, 'opencode.json'), join(f.parent, 'deleted-opencode.json'));
-  await chmod(join(f.directory, 'agents/reviewer.md'), 0o755);
+  await chmod(join(f.directory, 'agents/poteto-reviewer.md'), 0o755);
   await writeFile(join(f.directory, 'new.txt'), 'untracked bytes');
   const target = join(f.parent, 'private-target');
   await writeFile(target, 'outside secret bytes');
@@ -76,8 +77,8 @@ async function changes(f) {
   return target;
 }
 
-test('repository observations describe tracked, untracked, deleted, executable, symlink and index-only changes without exporting bytes or mutating the checkout', async () => {
-  const f = await fixture();
+test('repository observations describe tracked, untracked, deleted, executable, symlink and index-only changes without exporting bytes or mutating the checkout', async t => {
+  const f = await fixture(t);
   const clean = await captureRepository(f.directory, f.baseSHA);
   assert.equal(clean.head, f.baseSHA);
   assert.deepEqual(clean.entries, []);
@@ -89,12 +90,12 @@ test('repository observations describe tracked, untracked, deleted, executable, 
   assert.deepEqual(await inventory(f.directory), before);
   assert.equal(observed.baseSHA, f.baseSHA);
   assert.deepEqual(observed.entries.map(entry => [entry.path, entry.status]), [
-    ['README.md', 'modified'], ['agents/reviewer.md', 'modified'], ['link', 'added'], ['new.txt', 'added'], ['opencode.json', 'deleted'],
+    ['README.md', 'modified'], ['agents/poteto-reviewer.md', 'modified'], ['link', 'added'], ['new.txt', 'added'], ['opencode.json', 'deleted'],
   ]);
   const byPath = new Map(observed.entries.map(entry => [entry.path, entry]));
   assert.deepEqual(byPath.get('README.md').after, { type: 'file', mode: '100644', sha256: hash('working bytes'), bytes: 13 });
-  assert.equal(byPath.get('agents/reviewer.md').after.mode, '100755');
-  assert.equal(byPath.get('agents/reviewer.md').before.sha256, byPath.get('agents/reviewer.md').after.sha256);
+  assert.equal(byPath.get('agents/poteto-reviewer.md').after.mode, '100755');
+  assert.equal(byPath.get('agents/poteto-reviewer.md').before.sha256, byPath.get('agents/poteto-reviewer.md').after.sha256);
   assert.deepEqual(byPath.get('link').after, { type: 'symlink', mode: '120000', sha256: hash(target), bytes: Buffer.byteLength(target) });
   assert.equal(byPath.get('opencode.json').after, null);
   assert.equal(byPath.get('new.txt').tracked, false);
@@ -120,8 +121,8 @@ test('manifest rejects foreign owners, unknown IDs, other project scopes and loc
 
 test('corrupted Git objects cannot redefine the trusted baseline or indexed content', async t => {
   for (const kind of ['base blob', 'index blob', 'base tree', 'nested tree', 'base commit', 'ancestor commit']) {
-    await t.test(kind, async () => {
-      const f = await fixture();
+    await t.test(kind, async t => {
+      const f = await fixture(t);
       let oid;
       let type;
       let content;
@@ -153,8 +154,8 @@ test('corrupted Git objects cannot redefine the trusted baseline or indexed cont
   }
 });
 
-test('a tracked file replaced by a symlink reports the type change without reading its target', async () => {
-  const f = await fixture();
+test('a tracked file replaced by a symlink reports the type change without reading its target', async t => {
+  const f = await fixture(t);
   const original = await readFile(join(f.directory, 'README.md'));
   const target = join(f.parent, 'private-target');
   await writeFile(target, 'private target bytes');
@@ -168,8 +169,8 @@ test('a tracked file replaced by a symlink reports the type change without readi
   assert.deepEqual(await captureRepository(f.directory, f.baseSHA), observed);
 });
 
-test('the requested base stays distinct from the observed HEAD without creating commits', async () => {
-  const f = await fixture();
+test('the requested base stays distinct from the observed HEAD without creating commits', async t => {
+  const f = await fixture(t);
   const previous = await git(source, ['rev-parse', 'HEAD^']);
   await git(f.directory, ['checkout', '--quiet', '--detach', previous]);
   const observed = await captureRepository(f.directory, f.baseSHA);
@@ -179,16 +180,16 @@ test('the requested base stays distinct from the observed HEAD without creating 
   assert.deepEqual(observed.staged, []);
 });
 
-test('renames are represented as deletion and addition, not similarity guesses', async () => {
-  const f = await fixture();
+test('renames are represented as deletion and addition, not similarity guesses', async t => {
+  const f = await fixture(t);
   await rename(join(f.directory, 'README.md'), join(f.directory, 'renamed.txt'));
   const observed = await captureRepository(f.directory, f.baseSHA);
   assert.deepEqual(observed.entries.map(entry => [entry.path, entry.status]), [['README.md', 'deleted'], ['renamed.txt', 'added']]);
   assert.deepEqual(observed.entries[0].before, observed.entries[1].after);
 });
 
-test('untrusted Git configuration cannot invoke helpers or include external configuration', async () => {
-  const f = await fixture();
+test('untrusted Git configuration cannot invoke helpers or include external configuration', async t => {
+  const f = await fixture(t);
   const original = await readFile(join(f.directory, '.git/config'));
   const marker = join(f.parent, 'helper-was-run');
   for (const config of [
@@ -218,8 +219,8 @@ test('repository metadata indirections and unsafe paths fail closed', async t =>
     ['hard link', async f => { await writeFile(join(f.parent, 'outside'), 'private'); await link(join(f.parent, 'outside'), join(f.directory, 'hardlink')); }, /hard link/],
     ['submodule', async f => git(f.directory, ['update-index', '--add', '--cacheinfo', `160000,${f.baseSHA},submodule`]), /submodule/],
   ];
-  for (const [name, prepare, error] of cases) await t.test(name, async () => {
-    const f = await fixture();
+  for (const [name, prepare, error] of cases) await t.test(name, async t => {
+    const f = await fixture(t);
     await prepare(f);
     await assert.rejects(captureRepository(f.directory, f.baseSHA), error);
   });
@@ -227,8 +228,8 @@ test('repository metadata indirections and unsafe paths fail closed', async t =>
 
 test('file size, aggregate bytes and path count limits reject instead of returning partial manifests', async t => {
   for (const [name, count, size] of [['file size', 1, 8 * 1024 * 1024 + 1], ['aggregate bytes', 9, 8 * 1024 * 1024], ['metadata bytes', 1, 64 * 1024 * 1024 + 1], ['path count', 10001, 0]]) {
-    await t.test(name, async () => {
-      const f = await fixture();
+    await t.test(name, async t => {
+      const f = await fixture(t);
       for (let i = 0; i < count; i++) {
         const file = await open(join(f.directory, name === 'metadata bytes' ? '.git' : '', `bounded-${i}`), 'wx');
         await file.truncate(size);
@@ -240,12 +241,16 @@ test('file size, aggregate bytes and path count limits reject instead of returni
 });
 
 test('stopped Docker workers produce stable metadata digests; running and foreign containers are rejected without stopping them',
-  { skip: process.env.PSTACK_CONTAINER_TEST !== '1', timeout: 120000 }, async () => {
-    const f = await fixture();
+  { skip: process.env.PSTACK_CONTAINER_TEST !== '1', timeout: 120000 }, async t => {
+    const resources = ownedContainers(t);
+    const f = await fixture(t, resources);
+    const originalEnvironment = process.env;
+    process.env = { PATH: '/usr/local/bin:/usr/bin:/bin', HOME: f.parent, DOCKER_CONFIG: join(f.parent, '.docker') };
+    t.after(() => { process.env = originalEnvironment; });
     await changes(f);
     const options = await containerOptions({});
-    const base = { id: randomUUID(), owner: 'ses_artifact_owner', sessionID: 'ses_artifactWorker01', backend: 'container', role: 'poteto-agent', directory: f.directory, ref: f.baseSHA };
-    const record = { ...base, ...await startContainer(options, base) };
+    const base = { id: randomUUID(), owner: `ses_artifact_owner_${randomUUID()}`, sessionID: 'ses_artifactWorker01', backend: 'container', role: 'poteto-agent', directory: f.directory, ref: f.baseSHA };
+    const record = await resources.start(options, base);
     const workers = history(record);
     try {
       await assert.rejects(workerManifest(workers, record.owner, record.id), /requires a stopped container/);
@@ -266,7 +271,7 @@ test('stopped Docker workers produce stable metadata digests; running and foreig
     assert.equal(first.container.state, 'exited');
     assert.deepEqual(await inventory(f.directory), before);
     const copiedDirectory = join(f.parent, 'same-artifacts');
-    await cp(f.directory, copiedDirectory, { recursive: true });
+    await cp(f.directory, copiedDirectory, { recursive: true, verbatimSymlinks: true });
     for (const identity of [{ sessionID: 'ses_artifactWorker02' }, { directory: copiedDirectory }, { role: 'poteto-reviewer' }, { role: undefined }]) {
       const changedIdentity = await workerManifest(history({ ...record, ...identity }), record.owner, record.id);
       assert.deepEqual(changedIdentity.entries, first.entries);

@@ -85,10 +85,15 @@ python3 scripts/check_permissions.py
 PSTACK_PORTABILITY_TEST=1 node --test tests/portability.test.js
 ```
 
-The portability test uses a separate server and clean user configuration. It
-reuses installed dependencies, disables optional MCPs, and makes no model calls.
-The permission checker creates test sessions but does not execute tested actions.
-Use `PSTACK_CONTAINER_TEST=1 npm test` for container integration checks.
+OpenCode integration tests and the permission checker use test-owned servers,
+private configuration and credentials, and disabled MCPs. They make no model
+calls. The permission checker creates only isolated sessions and does not execute
+tested actions. Use `PSTACK_CONTAINER_TEST=1 npm test` for container integration
+checks. `PSTACK_REVIEW_PERMISSION_TEST=1` enables the installed review-permission
+prerequisite test.
+
+See [integration test isolation](docs/integration-test-isolation.md) for bounded
+runs, ownership checks, and cleanup limits after crashes.
 
 ## Limits and documentation
 

@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { api } from '../plugins/pstack/api.js';
 import { makeTempDir } from './helpers/temp.js';
+import { isolatedOpenCode } from './helpers/isolated-opencode.js';
 
 const reviewAction = 'pstack_worker_review';
 const historyTool = 'tools.pstack.history_read';
@@ -84,21 +84,38 @@ function fixturePlugin(nonce) {
 test('installed review permission prerequisite uses fresh approval and retains history denials', {
   skip: process.env.PSTACK_REVIEW_PERMISSION_TEST !== '1', timeout: 180000,
 }, async t => {
+  const root = await makeTempDir('pstack-review-permission-');
+  t.diagnostic(`Isolated review fixture ${root}; removed after successful server cleanup`);
+  let isolated;
+  t.after(async () => {
+    if (!isolated) return;
+    await isolated.stop();
+    await rm(root, { recursive: true, force: true });
+  });
+  isolated = await isolatedOpenCode(root, { signal: t.signal });
+  const { api } = isolated;
   const server = await api('get', '/api/info');
   assert.equal(server.version, '2.0.32', 'BLOCKED. A different server version cannot prove 2.0.32 behavior');
   t.diagnostic(`Installed server ${server.version}; requested proof target 2.0.32`);
   await t.test('save empty alone does not override a configured allow', async () => {
-    const baseline = await makeTempDir('pstack-review-permission-baseline-');
+    const baseline = `${root}/baseline`;
+    await mkdir(baseline);
     await writeFile(`${baseline}/opencode.json`, JSON.stringify({ agents: {
       'fixture-baseline': { mode: 'primary', permissions: [
         { action: reviewAction, resource: '*', effect: 'allow' },
       ] },
     } }));
+    const location = `?location%5Bdirectory%5D=${encodeURIComponent(baseline)}`;
+    const readiness = AbortSignal.timeout(10000);
+    while (!(await api('get', '/api/agent' + location, undefined, readiness)).data.some(agent => agent.id === 'fixture-baseline')) {
+      await delay(100, undefined, { signal: readiness });
+    }
     const { data: session } = await api('post', '/api/session', {
       agent: 'fixture-baseline', location: { directory: baseline },
       title: 'Synthetic no-data permission baseline',
     });
-    await api('get', `/api/agent?location%5Bdirectory%5D=${encodeURIComponent(baseline)}`);
+    assert.equal(session.agent, 'fixture-baseline');
+    await isolated.verifyLocation(baseline);
     const { data: decision } = await api('post', `/api/session/${session.id}/permission`, {
       action: reviewAction, resources: [`${baseline}/synthetic-no-data`], save: [],
     });
@@ -108,7 +125,8 @@ test('installed review permission prerequisite uses fresh approval and retains h
       if (decision.effect === 'ask') await api('post', `/api/session/${session.id}/permission/${decision.id}/reply`, { decision: 'reject' });
     }
   });
-  const directory = await makeTempDir('pstack-review-permission-test-');
+  const directory = `${root}/review`;
+  await mkdir(directory);
   const nonce = randomUUID();
   const resource = `${directory}/synthetic-no-data`;
   const query = `?location%5Bdirectory%5D=${encodeURIComponent(directory)}`;
@@ -126,7 +144,6 @@ test('installed review permission prerequisite uses fresh approval and retains h
       'fixture-tool-deny': { mode: 'primary', permissions: [...allowed, rule(historyTool, 'deny')] },
     },
   }));
-  t.diagnostic(`Retained synthetic fixture ${directory}`);
   async function session(agent, permissions = []) {
     const { data } = await api('post', '/api/session', {
       agent, permissions, location: { directory }, metadata: { permissionFixture: nonce },
@@ -158,17 +175,34 @@ test('installed review permission prerequisite uses fresh approval and retains h
       await delay(100, undefined, { signal: readiness });
     }
   } catch (error) {
-    if (readiness.aborted && error.name === 'AbortError' && error.cause === readiness.reason) {
+    if (readiness.aborted) {
       assert.fail(`Synthetic fixture plugin was not active within 10 seconds. ${startupDiagnostic}`);
     }
     throw error;
   }
   t.diagnostic(`Synthetic fixture plugin active after ${readinessChecks} readiness checks`);
-  const pending = async id => (await api('get', `/api/session/${id}/permission`)).data;
+  await isolated.verifyLocation(directory);
+  const pending = async (id, signal) => (await api('get', `/api/session/${id}/permission`, undefined, signal)).data;
   const reply = async (id, requestID, decision) => api('post', `/api/session/${id}/permission/${requestID}/reply`, { decision });
-  const read = (id, options = {}) => api('post', '/api/rpc/pstack-review-permission-fixture/read' + query,
-    { input: { sessionID: id, seed: false, readerID: randomUUID(), agent: 'fixture-allow', ...options } })
-    .then(response => response.output);
+  const readers = new Set();
+  const read = (id, options = {}) => {
+    const reader = { id, controller: new AbortController() };
+    reader.result = api('post', '/api/rpc/pstack-review-permission-fixture/read' + query,
+      { input: { sessionID: id, seed: false, readerID: randomUUID(), agent: 'fixture-allow', ...options } }, reader.controller.signal)
+      .then(response => response.output).finally(() => readers.delete(reader));
+    readers.add(reader);
+    reader.result.catch(() => {});
+    return reader.result;
+  };
+  async function drainReads(id) {
+    const active = [...readers].filter(reader => reader.id === id);
+    try {
+      for (const request of await pending(id)) await reply(id, request.id, 'reject');
+    } finally {
+      for (const reader of active) reader.controller.abort();
+      await Promise.allSettled(active.map(reader => reader.result));
+    }
+  }
   async function assertDenied(id, action, result, options = {}) {
     assert.deepEqual(await result, { released: false, deniedAction: action, decision: 'deny' });
     const { data: decision } = await api('post', `/api/session/${id}/permission`, {
@@ -183,8 +217,9 @@ test('installed review permission prerequisite uses fresh approval and retains h
     }
   }
   async function waitForApproval(id, readerID, count = 1) {
+    const deadline = AbortSignal.timeout(10000);
     for (let attempt = 0; attempt < 40; attempt++) {
-      const requests = await pending(id);
+      const requests = await pending(id, deadline);
       const request = readerID ? requests.find(p => p.source?.id === readerID) : requests[0];
       if (request) {
         assert.equal(requests.length, count);
@@ -194,7 +229,7 @@ test('installed review permission prerequisite uses fresh approval and retains h
           messageID: 'synthetic-message-' + request.source.id });
         return request;
       }
-      await delay(100);
+      await delay(100, undefined, { signal: deadline });
     }
     assert.fail('Synthetic read did not request fresh approval');
   }
@@ -212,7 +247,7 @@ test('installed review permission prerequisite uses fresh approval and retains h
       assert.deepEqual(await pending(id), []);
       return request.id;
     } finally {
-      for (const request of await pending(id)) await reply(id, request.id, 'reject');
+      await drainReads(id);
       await result.catch(() => {});
     }
   }
@@ -260,7 +295,7 @@ test('installed review permission prerequisite uses fresh approval and retains h
       assert.deepEqual(await secondResult, { released: false, deniedAction: reviewAction, decision: 'reject' });
       assert.deepEqual(await pending(owner.id), []);
     } finally {
-      for (const request of await pending(owner.id)) await reply(owner.id, request.id, 'reject');
+      await drainReads(owner.id);
       await Promise.allSettled([firstResult, secondResult]);
     }
   });
@@ -273,7 +308,7 @@ test('installed review permission prerequisite uses fresh approval and retains h
       await reply(owner.id, request.id, 'reject');
       assert.deepEqual(await result, { released: false, deniedAction: reviewAction, decision: 'reject' });
     } finally {
-      for (const request of await pending(owner.id)) await reply(owner.id, request.id, 'reject');
+      await drainReads(owner.id);
       await result.catch(() => {});
     }
   });
@@ -319,7 +354,7 @@ test('installed review permission prerequisite uses fresh approval and retains h
         await assertDenied(waiting.id, action, result);
         assert.deepEqual(await pending(waiting.id), []);
       } finally {
-        for (const request of await pending(waiting.id)) await reply(waiting.id, request.id, 'reject');
+        await drainReads(waiting.id);
         await result.catch(() => {});
       }
     });
@@ -328,8 +363,8 @@ test('installed review permission prerequisite uses fresh approval and retains h
   for (const fault of ['malformed-permission', 'system-error']) {
     await t.test(`${fault} cannot masquerade as permission denial`, async () => {
       await assert.rejects(read(owner.id, { fault }), error => {
-        assert.ok(error.stdout, 'The fixture must report an RPC error, not a transport failure');
-        const response = JSON.parse(error.stdout);
+        assert.ok(error.status >= 400 && error.body, 'The fixture must report an HTTP RPC error, not a transport failure');
+        const response = JSON.parse(error.body);
         assert.equal(response._tag, 'RpcInternalError');
         assert.equal(response.type, 'rpc.internal');
         return true;
