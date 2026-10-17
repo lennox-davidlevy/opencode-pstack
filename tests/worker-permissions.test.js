@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile, access, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import workerPlugin from '../plugins/pstack-worker/index.js';
+import workerPlugin from '../internal/pstack-worker/index.js';
 import { containerOptions } from '../plugins/pstack/containers.js';
 import { makeTempDir } from './helpers/temp.js';
 import { isolatedOpenCode } from './helpers/isolated-opencode.js';

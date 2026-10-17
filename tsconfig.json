@@ -4,5 +4,5 @@
     "allowJs": true, "checkJs": true, "strict": true, "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["plugins/**/*.js"]
+  "include": ["plugins/**/*.js", "internal/**/*.js"]
 }

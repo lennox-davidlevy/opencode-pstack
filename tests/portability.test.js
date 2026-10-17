@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { cp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +24,7 @@ test('clean server loads Markdown roles in development, consuming-project, and l
     });
     const bundle = join(root, 'bundle');
     await mkdir(bundle);
-    for (const path of ['agents', 'plugins', 'skills', 'prompts', 'opencode.json', 'package.json', 'package-lock.json']) {
+    for (const path of ['agents', 'plugins', 'internal', 'skills', 'prompts', 'opencode.json', 'package.json', 'package-lock.json']) {
       await cp(join(source, path), join(bundle, path), { recursive: true, verbatimSymlinks: true });
     }
     // Dependency installation is not under test. Reuse the exact installed SDK tree.
@@ -87,6 +88,11 @@ test('clean server loads Markdown roles in development, consuming-project, and l
           await delay(100);
         }
         assert.equal(plugin?.state.status, 'active', JSON.stringify(plugin));
+        const loadedPlugins = (await server.api('GET', '/api/plugin' + query)).data;
+        assert.ok(!loadedPlugins.some(plugin => plugin.id === 'pstack.container-worker'),
+          `${layout} must not load the container-only plugin`);
+        assert.deepEqual(loadedPlugins.filter(plugin => plugin.state.status === 'failed').map(plugin => plugin.id), [],
+          `${layout} must not have failed plugins`);
         const selectedAgent = layout === 'local-worker' ? 'poteto-agent' : 'poteto';
         const session = (await server.api('POST', '/api/session', { agent: selectedAgent, location: { directory },
           permissions: layout === 'local-worker' ? restrictions : [] })).data;
@@ -102,6 +108,28 @@ test('clean server loads Markdown roles in development, consuming-project, and l
           try { assert.equal(decision.effect, expected, `${agent} ${action}`); }
           finally { if (decision.effect === 'ask') await server.api('POST', `/api/session/${session.id}/permission/${decision.id}/reply`, { decision: 'reject' }); }
         }
+      });
+    }
+    const owner = (await server.api('POST', '/api/session', { agent: 'poteto', location: { directory: bundle } })).data;
+    for (const withWorker of [true, false]) {
+      await t.test(`explicit container plugin ${withWorker ? 'activates with an owned worker' : 'rejects missing worker options'}`, async () => {
+        const directory = join(root, withWorker ? 'container-control' : 'missing-worker-control');
+        await mkdir(directory);
+        // Loading needs an owned worker identity, but does not start or execute a container.
+        const worker = { id: randomUUID(), owner: owner.id, directory, backend: 'container', role: 'poteto-agent' };
+        await writeFile(join(directory, 'opencode.json'), JSON.stringify({
+          plugins: [{ package: join(bundle, 'internal/pstack-worker'), ...(withWorker ? { options: { worker } } : {}) }],
+        }));
+        const query = '?' + new URLSearchParams({ 'location[directory]': directory });
+        let plugin;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          plugin = (await server.api('GET', '/api/plugin' + query)).data.find(p => p.id === 'pstack.container-worker');
+          if (['active', 'failed'].includes(plugin?.state.status)) break;
+          await delay(100);
+        }
+        await server.verifyLocation(directory);
+        assert.equal(plugin?.state.status, withWorker ? 'active' : 'failed', JSON.stringify(plugin));
+        if (!withWorker) assert.match(plugin.state.error, /Missing owned worker/);
       });
     }
     assert.deepEqual((await server.api('GET', '/api/credential')).data, []);

@@ -1,5 +1,5 @@
 import { Plugin } from '@opencode/plugin';
-import { containerCommand } from '../pstack/containers.js';
+import { containerCommand } from '../../plugins/pstack/containers.js';
 
 export default Plugin.define({
   id: 'pstack.container-worker',

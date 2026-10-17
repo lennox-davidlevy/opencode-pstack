@@ -178,7 +178,7 @@ export default Plugin.define({
           ];
           try {
             await writeFile(join(control, 'opencode.json'), JSON.stringify({
-            plugins: [{ package: join(root, 'plugins/pstack-worker'), options: { worker } }],
+            plugins: [{ package: join(root, 'internal/pstack-worker'), options: { worker } }],
             agents: { 'pstack-container': { mode: 'primary',
               system: 'You are a bounded container worker. Use only container_command. Your files are at /workspace inside an offline container. Do not attempt host access, commit, push, or expand scope. Return evidence and changed paths. Review roles have a read-only workspace.',
               permissions } },
