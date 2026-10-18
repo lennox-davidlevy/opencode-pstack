@@ -41,11 +41,16 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 - Autopilot-full: two independent items, one `poteto-agent` owner each in its own git worktree
   (cap of 2 children respected), independent `poteto-reviewer`, two ready PRs. CI on both was red
   only from the unrelated failing test on master, which the run left alone as out of scope.
-  Cursor-only steps (cloud agents, Bugbot, merge) were skipped and reported.
+  Cursor-only steps (cloud agents, Bugbot) were skipped and reported.
+- Merge flow, on a clean copy of the bundle: PR #1 merged and master went green, then the two
+  remaining PRs were rebased onto master, force-pushed with lease, re-verified, and squash-merged
+  after green CI. Master CI was green at the end. The bundled `watch-pr` dependencies installed
+  inside the bundle. An earlier attempt through a symlink to this repo stalled because this repo's
+  local gitignored `AGENTS.md` leaked in. Test consumer layouts from a clean copy, not a symlink.
 
 ## Known gaps and next work
 
-- Pilot the remaining playbooks: hillclimb, autopilot with a merge, `watch-pr` after `bun install`,
+- Pilot the remaining playbooks: hillclimb, `watch-pr` after `bun install`,
   PTY-driven app verification.
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
