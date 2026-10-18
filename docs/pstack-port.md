@@ -43,9 +43,6 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
 - `docs/model-policy.md` describes the model task policy.
-- `docs/parity-execution.md`, `docs/parity-plan.md`, `docs/project-handoff.md` are logs of an
-  earlier, hardening-focused pass. They describe the previous (stricter, no commit/push)
-  contract and are superseded by this file.
 
 ## Resource safety
 
