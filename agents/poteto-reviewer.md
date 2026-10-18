@@ -20,6 +20,20 @@ permissions:
   - { action: shell, resource: "git status*", effect: allow }
   - { action: shell, resource: "git log*", effect: allow }
   - { action: shell, resource: "git show*", effect: allow }
+  - { action: shell, resource: "git blame*", effect: allow }
+  - { action: shell, resource: "git ls-files*", effect: allow }
+  - { action: shell, resource: "git grep*", effect: allow }
+  - { action: shell, resource: "git rev-parse*", effect: allow }
+  - { action: shell, resource: "git show-ref*", effect: allow }
+  - { action: shell, resource: "ls*", effect: allow }
+  - { action: shell, resource: "head*", effect: allow }
+  - { action: shell, resource: "tail*", effect: allow }
+  - { action: shell, resource: "wc*", effect: allow }
+  - { action: shell, resource: "cat*", effect: allow }
+  - { action: shell, resource: "rg*", effect: allow }
+  - { action: shell, resource: "sort*", effect: allow }
+  - { action: shell, resource: "uniq*", effect: allow }
+  - { action: shell, resource: "diff*", effect: allow }
   - { action: execute, resource: "*", effect: allow }
   - { action: websearch, resource: "*", effect: allow }
   - { action: webfetch, resource: "*", effect: allow }

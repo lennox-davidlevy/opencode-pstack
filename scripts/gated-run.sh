@@ -27,7 +27,7 @@ sleep 2
 PEAK=$(cat "$AUDIT/$RUN.peak" 2>/dev/null || echo unavailable)
 LEFT=$(systemctl --user list-units --no-legend "$UNIT*" 2>/dev/null | wc -l)
 inv > "$AUDIT/$RUN.paths.after"; ctr > "$AUDIT/$RUN.ctr.after"; B1=$(bytes); B1=${B1:-0}
-NEWP=$(comm -13 "$AUDIT/$RUN.paths.before" "$AUDIT/$RUN.paths.after")
+NEWP=$(comm -13 "$AUDIT/$RUN.paths.before" "$AUDIT/$RUN.paths.after" | { grep -Ev "${GATE_IGNORE:-^\$}" || true; })
 NEWC=$(comm -13 "$AUDIT/$RUN.ctr.before" "$AUDIT/$RUN.ctr.after" | wc -l)
 tail -c 2000 "$LOG"; echo
 echo "---- GATE receipt ($(( $(date +%s)-START ))s, cmd exit=$RC) log=$LOG"

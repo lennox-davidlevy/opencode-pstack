@@ -7,7 +7,7 @@ the execution container. No additional login is required.
 
 The compatibility target is OpenCode 2.0.32 with `@opencode/plugin` SDK 2.0.31
 deliberately retained as the tested combination. The authenticated container smoke
-recorded in the [port guide](../docs/pstack-port.md) ran on OpenCode 2.0.31.
+recorded in the [parity status](../docs/pstack-port.md) ran on OpenCode 2.0.31.
 Production cross-session review has not yet been verified on OpenCode 2.0.32.
 
 Build the execution image (nothing is pushed):

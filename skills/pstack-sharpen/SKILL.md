@@ -31,8 +31,9 @@ disable-model-invocation: true
 > reaches them and the user's request covers shipping; otherwise stop at a verified local
 > handoff. Never force-push without a specific ask. Full-autonomy wording never overrides
 > a permission prompt. Before substantive test changes load
-> `pstack-principle-test-behavior-not-implementation`. Heavy test/build runs go through
-> `scripts/gated-run.sh` (memory, task and time caps plus leftover checks).
+> `pstack-principle-test-behavior-not-implementation`. Run quick focused checks directly. Wrap
+> long or memory-heavy suites in `scripts/gated-run.sh` from the bundle root (memory, task and
+> time caps plus a leftover-file check).
 <!-- opencode-host:end -->
 
 Before starting, ask how a top expert would approach this task (their raw sources, their real methods, an outside check that the result is right), what the user is really after, and whether the task is over- or underspecified. Loosen constraints that don't serve the goal as readily as you add ones that do, and leave choices that are the user's to make open instead of deciding them. Fold in only what makes the work better, not bigger, but always keep one outside check that the result is right, without narrating the framing, then do the work. Don't hand back a rewritten prompt.

@@ -31,8 +31,9 @@ disable-model-invocation: true
 > reaches them and the user's request covers shipping; otherwise stop at a verified local
 > handoff. Never force-push without a specific ask. Full-autonomy wording never overrides
 > a permission prompt. Before substantive test changes load
-> `pstack-principle-test-behavior-not-implementation`. Heavy test/build runs go through
-> `scripts/gated-run.sh` (memory, task and time caps plus leftover checks).
+> `pstack-principle-test-behavior-not-implementation`. Run quick focused checks directly. Wrap
+> long or memory-heavy suites in `scripts/gated-run.sh` from the bundle root (memory, task and
+> time caps plus a leftover-file check).
 <!-- opencode-host:end -->
 
 # Fix Root Causes

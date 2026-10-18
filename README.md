@@ -108,9 +108,9 @@ python3 scripts/check_permissions.py
 PSTACK_PORTABILITY_TEST=1 node --test tests/portability.test.js
 ```
 
-`npm test` runs test files serially. This limits test-process fan-out, not total
-memory. Installed-server and container checks remain opt-in. For memory-sensitive
-validation, also impose a process-group memory limit and a deadline.
+`npm test` runs test files serially. For a bounded run with a memory cap, timeout, and
+leftover check, use `scripts/gated-run.sh -- npm test`. Installed-server and container
+checks remain opt-in.
 
 OpenCode integration tests and the permission checker use test-owned servers,
 private configuration and credentials, and disabled MCPs. They make no model
@@ -124,28 +124,15 @@ runs, ownership checks, and cleanup limits after crashes.
 
 ## Limits and documentation
 
-For a new reviewer or agent taking over this work, start with the
-[project architecture and handoff](docs/project-handoff.md). It records the
-upstream origin, current implementation, memory incident, portability goals,
-verification limits, and unfinished work.
-
-- Full upstream parity is unfinished. Hosted Bugbot, cloud workers, and desktop
-  or mobile drivers are not included.
-- Container execution is offline and starts from a committed ref. Uncommitted
-  parent changes are excluded. Model requests use the host's existing sign-in.
-- Worker lifecycle transport pins a validated local server registration for each
-  operation. Common tool preflight, worker-start parent lookup, and ordinary
-  history tools still use the ambient OpenCode CLI service.
-- Local worker hardening has passed bounded integration checks. Do not use
-  unattended workers yet. See [recovery boundaries](docs/worker-recovery.md) and the
-  [verification record](docs/parity-execution.md).
-- Schedules retain at most 100 jobs per project namespace and allow 20 armed
-  jobs. Cancelled jobs still count toward retention. Invalid or oversized history
-  disables scheduling without disabling worker management. Automatic pruning is
-  not implemented.
-- Agents do not commit or push. External writes and destructive actions require
-  specific approval.
-
-See the [portability and parity guide](docs/pstack-port.md),
-[container setup](container/README.md), and [work plan](docs/parity-plan.md).
-The upstream MIT license and import provenance are preserved in [vendor/pstack](vendor/pstack/).
+- **Parity status:** [docs/pstack-port.md](docs/pstack-port.md) has the capability map,
+  what has been exercised live, and the gaps.
+- Hosted Bugbot, Cursor cloud agents, automations, and desktop or mobile drivers do not
+  exist here. Skills skip those steps and say so.
+- Commits, pushes, and PR writes prompt for approval (`ask`). They are not blocked.
+- `pstack.worker` (committed-ref containers) is experimental, Linux only, and not for
+  unattended use. Native `subagent` fan-out (up to four) is the default parallel path.
+- On `opencode run`, pass `--model` for the primary; the agent file's `model` is not applied
+  to a primary session in 2.0.32.
+- See [recovery boundaries](docs/worker-recovery.md), [model policy](docs/model-policy.md),
+  [container setup](container/README.md), and
+  [integration test isolation](docs/integration-test-isolation.md).

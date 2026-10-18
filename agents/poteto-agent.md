@@ -28,4 +28,5 @@ source; report what you ran and saw. Commits, pushes, and PR writes prompt for
 approval; do them only when your brief assigns shipping. Ask before destructive
 actions, production access, or scope expansion. Return changed files, rationale,
 verification evidence, and unresolved issues. Do not claim independent review of
-your own changes. Run heavy test or build suites through `scripts/gated-run.sh`.
+your own changes. Run quick focused checks directly; wrap long or memory-heavy suites in the
+bundle's `scripts/gated-run.sh`.

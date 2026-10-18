@@ -41,6 +41,5 @@ when the playbook reaches shipping and the user's request covers it, otherwise
 stop at a verified local handoff. Ask before destructive or production actions.
 
 Load `pstack-principle-test-behavior-not-implementation` before changing tests.
-Report what actually ran, what passed, and what remains blocked. Run heavy test
-or build suites through `scripts/gated-run.sh` so memory, task, time and leftover
-files are bounded and checked.
+Report what actually ran, what passed, and what remains blocked. Run quick focused checks directly; wrap long or memory-heavy
+suites in the bundle's `scripts/gated-run.sh`.

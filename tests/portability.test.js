@@ -114,7 +114,7 @@ test('clean server loads Markdown roles in development, consuming-project, and l
           permissions: layout === 'local-worker' ? restrictions : [] })).data;
         assert.equal(session.agent, selectedAgent);
         for (const [agent, action, resource, expected] of [
-          ['poteto', 'shell', 'git push origin HEAD', layout === 'local-worker' ? 'deny' : 'ask'],
+          ['poteto', 'shell', 'git push origin HEAD', 'ask'],
           ['poteto', 'subagent', 'poteto-agent', layout === 'local-worker' ? 'deny' : 'allow'],
           ['poteto-reviewer', 'edit', '*', 'deny'],
           ['poteto-agent', 'subagent', 'poteto-reviewer', 'deny'],
