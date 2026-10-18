@@ -5,7 +5,7 @@ import { isAbsolute, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export async function isolatedOpenCode(root, owner = {}, {
-  executable = 'opencode', startupTimeout = 30000, requestTimeout = 30000, shutdownTimeout = 5000,
+  executable = 'opencode', startupTimeout = 30000, requestTimeout = 30000, shutdownTimeout = 5000, registerService = false,
 } = {}) {
   if (process.platform === 'win32') throw new Error('Isolated server requires POSIX process groups');
   root = await realpath(root);
@@ -105,6 +105,11 @@ export async function isolatedOpenCode(root, owner = {}, {
     };
     const info = await request('GET', '/api/info');
     if (info.pid !== child.pid) throw new Error('Isolated server PID mismatch');
+    let registrationFile;
+    if (registerService) {
+      registrationFile = join(root, 'test-service.json');
+      await writeFile(registrationFile, JSON.stringify({ url: endpoint, pid: child.pid, version: info.version, password }), { flag: 'wx', mode: 0o600 });
+    }
     const credentials = await request('GET', '/api/credential');
     if (!Array.isArray(credentials.data) || credentials.data.length) throw new Error('Isolated server inherited credentials');
     const verifyLocation = async directory => {
@@ -118,7 +123,7 @@ export async function isolatedOpenCode(root, owner = {}, {
         throw new Error('Fixture has an MCP that is not disabled');
       }
     };
-    return { api: request, stop, endpoint, pid: child.pid, env, verifyLocation };
+    return { api: request, stop, endpoint, pid: child.pid, env, verifyLocation, registrationFile };
   } catch (error) {
     try { await stop(); } catch (cleanupError) { throw new AggregateError([error, cleanupError], 'Isolated startup and cleanup failed'); }
     throw error;

@@ -10,6 +10,53 @@ stop dependent workflows and report a plugin installation error. Do not fake
 these capabilities with Cursor paths, imaginary cloud agents, or promises to
 wake up later. This contract replaces the older compatibility prefaces.
 
+## Task models
+
+Read `pstack-models.json` in the project-local bundle root, alongside `agents/`
+and `scripts/`. Use `version: 1`, `tasks` mapping task names to exact
+`provider/model#variant` strings, and `defaults` mapping agent names to tasks.
+The six profiles are:
+
+| Task | Work |
+| --- | --- |
+| `coordination` | Planning, synthesis, and lead judgment |
+| `implementation` | Normal implementation and verification |
+| `hard` | Cross-cutting design, concurrency, or subtle algorithms |
+| `investigation` | Source exploration and evidence gathering |
+| `review` | Independent review and critique |
+| `mechanical` | Bounded, specified edits with observable checks |
+
+Policy defaults map `poteto` to `coordination`, `poteto-agent` to
+`implementation`, `poteto-reviewer` to `review`, and `poteto-investigator` to
+`investigation`. `hard` is an explicit escalation. `mechanical` is a bounded
+trial, not a quality or cost promise. Do not substitute it for judgment work.
+
+The primary selects a task before each delegate call. For the native `subagent`
+tool, read `tasks[task]` and pass that exact string as `model` alongside the
+appropriate `agent`. Do not add a nonexistent task parameter to that tool.
+For `pstack.worker`, pass optional `task`. When omitted, the worker resolves
+`defaults[role]` and then `tasks[task]`. It does not force the parent model.
+Task selection changes the model, not permissions. Keep implementation on
+`poteto-agent`, local read-only review on `poteto-reviewer`, and connected-source
+queries on `poteto-investigator`. A reviewer using the implementation profile
+still cannot write. Children never delegate recursively.
+
+A user-approved project policy is explicit authorization to use its models.
+Do not ask again for each call. Discover exact IDs and variants before approving
+policy changes. Do not invent aliases, adjust effort or speed suffixes, inherit
+the parent as a fallback, or retry a rejected model on a nearby model. Report a
+missing, invalid, unavailable, or rejected policy value and stop that dispatch.
+
+For multi-model panels, start with `tasks.implementation` and `tasks.review`.
+Compare provider/model IDs without the variant. If they match, report missing
+model diversity. Different variants and fresh sessions are not distinct models.
+No `panels` key is required. Model diversity does not imply provider diversity.
+Preserve the runner or reviewer role for each seat regardless of its task model.
+
+Use `pstack-setup-pstack` to edit project policy and synchronize Markdown agent
+defaults. Existing sessions keep their selected model until the human changes
+it. See `docs/model-policy.md` in the bundle for the approved mapping and limits.
+
 ## History
 
 Use `pstack.history_list` for the current working directory, then

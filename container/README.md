@@ -28,6 +28,12 @@ container. File reads/edits and tests use shell/Python through that tool.
 Native host tools, Code Mode, MCP, delegation, and history tools are unavailable.
 Host global plugins remain trusted server administration, not sandboxed code.
 
+The optional `task` selects a model from the bundle's `pstack-models.json`.
+Without it, the worker uses its role's default task. The runtime checks that
+the model and variant are available before creating a checkout or container.
+This does not change the role's permissions or the parent session's model.
+See [model policy](../docs/model-policy.md) for the task choices.
+
 Containers have no network, no capabilities, a read-only root, temporary /tmp,
 and CPU/memory/PID limits. Only the clone is mounted; reviewer/investigator
 workspaces are read-only. Reviewer commands ask permission. Implementation

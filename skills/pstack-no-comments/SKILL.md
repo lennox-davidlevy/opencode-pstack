@@ -16,6 +16,9 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
   Use poteto-agent for implementation, poteto-reviewer for local review and
   comment critique, poteto-investigator for connected source investigations.
   The primary performs fan-out; children cannot recursively delegate.
+  Keep at most two active children across owners, runners, and reviewers.
+  Retained live resources and uncertain acquisitions still consume capacity.
+  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
 - Use the runtime's worker tool for parallel writers. Default container workers
   reuse host model authentication and execute only in an offline container.
   Explicit local workers use host worktrees without process isolation.
@@ -30,9 +33,20 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Discover connected MCPs through Code Mode. Missing services are coverage gaps.
   Bugbot comments can be inspected with the forge; this port does not provide
   Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Never use Cursor model slugs. Keep configured OpenCode agent models unless the
-  user requests a different discovered provider/model and variant. Fresh sessions
-  on one model are not multi-model consensus; report a required diversity gap.
+- Read project-local `pstack-models.json` before selecting delegate models. Its
+  six tasks are coordination, implementation, hard, investigation, review, and
+  mechanical. The user-approved policy authorizes those exact discovered
+  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
+- For native `subagent` calls, choose the task and pass its exact policy value as
+  `model`. Keep the agent role and permissions appropriate to the work. Workers
+  accept optional `task`, default from the role through policy `defaults`, and
+  resolve the model themselves. Neither path forces the parent's model. See
+  `pstack-runtime` for selection details. Missing or rejected models are gaps.
+- Panels start with the implementation and review task models. Require distinct
+  configured model IDs, not just variants or fresh contexts. Report diversity
+  gaps without substituting an unapproved model. No `panels` key is needed.
+- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
+  This does not switch an existing session's selected model. Only the human does.
 - Never commit or push, including wrappers. External writes, destructive actions,
   production access, and scope expansion need specific confirmation. Shipping
   ends at a verified local handoff unless separately authorized within these
@@ -40,6 +54,13 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Load pstack-principle-test-behavior-not-implementation before changing tests.
   Keep tests at observable boundaries, justify each by a credible regression,
   and never add test-only production seams. Reviews do not authorize editing.
+- Before every test, build, benchmark, or integration run, establish the resource
+  baseline. After success, failure, or timeout, require PASS from "Check resources
+  after every run" in bundle-root `docs/integration-test-isolation.md`
+  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
+  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
+  Only permitted primary or implementation runners execute checks and authorized
+  cleanup. Read-only roles verify receipts or request a permitted runner.
 - Bundled scripts are real programs with side effects, not permission bypasses.
   Inspect them before use. The local worktree audit is an inventory, not proof
   of inactivity or permission to delete. Unknown activity requires review.
@@ -60,7 +81,7 @@ Use the caller's files or diff. Otherwise use the current diff against the base 
 
 ## Steps
 
-1. Spawn `Task` with `subagent_type: "comment-sicko"`. Pass the scope. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill. Do not restate its rules.
+1. Spawn native `subagent` with `agent: poteto-reviewer` and the `review` task's exact policy model. Pass the comment-critique scope. Keep its read-only permissions per `pstack-runtime`.
 2. Inspect its report and diff. Reject application-code edits, scope escapes, exception-protected deletions, misstated `MUST KILL` reasons, and flags that treat kept intentional code as guilty. Reshape flags on our-code surprises stay actionable. Do not restore those comments. A keep survives only with proof it is about something we cannot change. Audit missed scoped lint and TypeScript suppressions. Correctness or safety suppressions stay actionable `MUST KILL`s. Restore deletions only with exact exceptions and scoped proof. Before accepting thin `IMPORTANT` or `do not remove` kills or keeps, run `/how` or `/why` on their symbol. If a kill is ambiguous, do not restore. If a keep is refuted or still ambiguous, delete it. Revert and rerun one rejected report with the failure named. Reject a second, report it open, and fail `/no-comments`.
 3. Fix trivial accepted flags directly by deleting a dead path, dropping a parameter, or using the real API. If any fix needs a shape, run `/architect` once for the accepted set and surrounding code. Stop at the sketch. Architect shapes. Step 4 implements.
 4. Implement the smallest root-cause fix in scope. Remove every named workaround. If the root cause is out of scope, land the smallest in-scope fix and report the rest open. The **principle-fix-root-causes** and **principle-redesign-from-first-principles** skills guide intent only. Neither authorizes widening the fence nor fixing instances outside it. Never bolt on symptom guards.

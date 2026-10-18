@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lstat, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { lstat, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { once } from 'node:events';
@@ -10,12 +10,17 @@ import { historyList, scopedSession } from '../plugins/pstack/api.js';
 import { deliverWakeup } from '../plugins/pstack/wakeup.js';
 import { makeTempDir } from './helpers/temp.js';
 
-test('temporary fixtures use an existing preferred parent or fall back without creating it', async () => {
+test('temporary fixtures use an existing preferred parent or fall back without creating it', async t => {
   const parent = await makeTempDir('pstack-temp-test-');
+  t.after(() => rm(parent, { recursive: true, force: true }));
   const preferred = await makeTempDir('preferred-', parent);
   assert.equal(dirname(preferred), parent);
   const missing = join(parent, 'absent-parent');
   const fallback = await makeTempDir('pstack-fallback-', missing);
+  t.after(async () => {
+    await rm(fallback, { recursive: true, force: true });
+    await assert.rejects(lstat(fallback), { code: 'ENOENT' });
+  });
   assert.equal(dirname(fallback), resolve(tmpdir()));
   await assert.rejects(lstat(missing), { code: 'ENOENT' });
   for (const directory of [preferred, fallback]) {
@@ -24,8 +29,9 @@ test('temporary fixtures use an existing preferred parent or fall back without c
   }
 });
 
-async function diskStore() {
+async function diskStore(t) {
   const dir = await makeTempDir('pstack-loop-test-');
+  t.after(() => rm(dir, { recursive: true, force: true }));
   const path = join(dir, 'storage.json');
   await writeFile(path, '{}');
   return {
@@ -48,7 +54,7 @@ const job = (id, overrides = {}) => ({ id, sessionID: 'ses_owner', directory: '/
 
 test('durable schedules bound delivery, serialize ticks, cancel, expire, and pause uncertainty', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100 });
-  const store = await diskStore();
+  const store = await diskStore(t);
   const delivered = [];
   const deliver = async j => { delivered.push(j.id); return `receipt-${delivered.length}`; };
   const initial = new Loops(store, 'project/', deliver);
@@ -84,7 +90,7 @@ test('durable schedules bound delivery, serialize ticks, cancel, expire, and pau
 test('a slow earlier delivery cannot admit a later expired job', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100 });
   const delivered = [];
-  const store = await diskStore();
+  const store = await diskStore(t);
   const loops = new Loops(store, 'slow/', async j => {
     delivered.push(j.id);
     t.mock.timers.tick(500);
@@ -100,6 +106,7 @@ test('a slow earlier delivery cannot admit a later expired job', async t => {
 test('wakeup admission rejects queued predecessors and expiry during preflight', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 100 });
   const directory = await makeTempDir('pstack-wakeup-test-');
+  t.after(() => rm(directory, { recursive: true, force: true }));
   const pending = [];
   const admitted = [];
   let expireDuringPreflight = false;
@@ -146,8 +153,9 @@ test('PTY close stops a signal-resistant descendant even when its leader exits',
   }
 });
 
-test('history rejects other-directory sessions and forged pagination without leaking content', async () => {
+test('history rejects other-directory sessions and forged pagination without leaking content', async t => {
   const root = await makeTempDir('pstack-history-test-');
+  t.after(() => rm(root, { recursive: true, force: true }));
   const other = join(root, 'other');
   await mkdir(other);
   const session = { id: 'ses_known', title: 'In scope', location: { directory: root } };

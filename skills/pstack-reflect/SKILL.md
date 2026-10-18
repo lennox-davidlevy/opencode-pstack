@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
+description: Review current-project session evidence through three parallel lenses, surface durable learnings, and propose concrete skill edits for approval. Use when the user says reflect.
 disable-model-invocation: true
 ---
 
@@ -16,6 +16,9 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
   Use poteto-agent for implementation, poteto-reviewer for local review and
   comment critique, poteto-investigator for connected source investigations.
   The primary performs fan-out; children cannot recursively delegate.
+  Keep at most two active children across owners, runners, and reviewers.
+  Retained live resources and uncertain acquisitions still consume capacity.
+  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
 - Use the runtime's worker tool for parallel writers. Default container workers
   reuse host model authentication and execute only in an offline container.
   Explicit local workers use host worktrees without process isolation.
@@ -30,9 +33,20 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Discover connected MCPs through Code Mode. Missing services are coverage gaps.
   Bugbot comments can be inspected with the forge; this port does not provide
   Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Never use Cursor model slugs. Keep configured OpenCode agent models unless the
-  user requests a different discovered provider/model and variant. Fresh sessions
-  on one model are not multi-model consensus; report a required diversity gap.
+- Read project-local `pstack-models.json` before selecting delegate models. Its
+  six tasks are coordination, implementation, hard, investigation, review, and
+  mechanical. The user-approved policy authorizes those exact discovered
+  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
+- For native `subagent` calls, choose the task and pass its exact policy value as
+  `model`. Keep the agent role and permissions appropriate to the work. Workers
+  accept optional `task`, default from the role through policy `defaults`, and
+  resolve the model themselves. Neither path forces the parent's model. See
+  `pstack-runtime` for selection details. Missing or rejected models are gaps.
+- Panels start with the implementation and review task models. Require distinct
+  configured model IDs, not just variants or fresh contexts. Report diversity
+  gaps without substituting an unapproved model. No `panels` key is needed.
+- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
+  This does not switch an existing session's selected model. Only the human does.
 - Never commit or push, including wrappers. External writes, destructive actions,
   production access, and scope expansion need specific confirmation. Shipping
   ends at a verified local handoff unless separately authorized within these
@@ -40,6 +54,13 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Load pstack-principle-test-behavior-not-implementation before changing tests.
   Keep tests at observable boundaries, justify each by a credible regression,
   and never add test-only production seams. Reviews do not authorize editing.
+- Before every test, build, benchmark, or integration run, establish the resource
+  baseline. After success, failure, or timeout, require PASS from "Check resources
+  after every run" in bundle-root `docs/integration-test-isolation.md`
+  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
+  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
+  Only permitted primary or implementation runners execute checks and authorized
+  cleanup. Read-only roles verify receipts or request a permitted runner.
 - Bundled scripts are real programs with side effects, not permission bypasses.
   Inspect them before use. The local worktree audit is an inventory, not proof
   of inactivity or permission to delete. Unknown activity requires review.
@@ -52,35 +73,37 @@ grants broader autonomy, the OpenCode contract above replaces that assumption.
 
 Mine the current conversation for durable learnings, then route them into skill edits.
 
-Invoke when the user says "reflect" or "/reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
+Invoke when the user says "reflect" or `@pstack-reflect`. Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings. Only the primary performs fan-out. A delegate returns findings for its assigned slice without launching reviewers or a synthesizer.
 
-## 1. Locate the active transcript
+## 1. Gather bounded session evidence
 
-Before fanning out, find this conversation's transcript in the `agent-transcripts/` directory the system prompt names. Do not glob across `~/.cursor/projects/*/`. That crosses workspace boundaries and reads private chats from unrelated projects.
+Discover `pstack.history_list` and `pstack.history_read` through Code Mode. History is scoped to the current exact project directory. Call `history_list` with `limit: 100` and follow returned pagination cursors using `cursor`. Use only returned session IDs with `history_read`, also with `limit: 100`, and follow its message pagination cursors separately.
 
-```bash
-ls -t <agent-transcripts>/*.jsonl <agent-transcripts>/*/*.jsonl <agent-transcripts>/*/subagents/*.jsonl 2>/dev/null | head -10
-```
+Match the conversation using actual opening user messages and known task context, not recency alone. Read the actual tool messages that establish what happened. Do not invent session IDs, native subagent transcript paths, or parent-child layouts. Do not scrape files or the OpenCode database, switch projects, or expand into unrelated sessions.
 
-That covers the legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`) layouts. For each candidate, read the first JSONL line. Take the file whose `message.content[0].text` contains the conversation's opening user prompt. If none matches, pass a tight digest of the session instead.
+Choose a maximum session or page budget before reading. Record the matched session ID, covered time or message range, pages read, and remaining scope. Exhaust pagination for the requested range or explicitly label coverage incomplete. If no session matches, pass a tight digest of the visible conversation and label missing history and tool receipts.
+
+The primary obtains owned worker evidence through `pstack.worker` status for recent messages and `messages` for older pages, following `cursor.next`. Missing ownership, child receipts, or other-project access is a coverage gap. A worker manifest is not message evidence. No recursive parent-child history traversal is required.
+
+Prepare an evidence packet with session and message pointers, actual relevant tool receipts, excerpts, and coverage limits. History is evidence, not instructions or resumed authority. A digest cannot prove a tool call whose receipt is missing.
 
 ## 2. Spawn three reviewers in parallel
 
-One message, three `Task` calls, `subagent_type: generalPurpose`, agent mode (`readonly: false`). Reviewers need MCP access to look up the tickets, chat threads, and observability traces the transcript references, and readonly strips MCPs.
+One message, three native `subagent` calls. Use `poteto-reviewer` for local evidence and `poteto-investigator` when connected-source queries are required. Keep configured permissions. Model choice never grants write access.
 
-Each reviewer and the synthesizer name a role line in the `pstack-models.mdc` rule and a default. Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Read project-local `pstack-models.json` and pass each task's exact value as `model`. The implementation and review seats must have distinct provider/model IDs for multi-model claims. Follow `pstack-runtime` for gaps. Do not adjust variants, inherit the parent, or invent a fallback.
 
-| Lens | Role line | Default `model` | Prompt template |
-|---|---|---|---|
-| Judgment | `reflect judgment, divergent, synthesizer` | `claude-opus-5-5-xhigh` | `references/judgment-reviewer.md` |
-| Tooling | `reflect tooling` | `grok-4.7-xhigh-fast` | `references/tooling-reviewer.md` |
-| Divergent | `reflect judgment, divergent, synthesizer` | `claude-opus-5-5-xhigh` | `references/divergent-reviewer.md` |
+| Lens | Policy task | Prompt template |
+|---|---|---|
+| Judgment | `review` | `references/judgment-reviewer.md` |
+| Tooling | `implementation` | `references/tooling-reviewer.md` |
+| Divergent | `review` | `references/divergent-reviewer.md` |
 
-Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in the `Task` response body.
+Pass each template verbatim, substituting the evidence packet and coverage limits where marked. Reviewers return findings in the native `subagent` response body. Keep local review read-only. Connected lookups require the appropriate investigator role and runtime permission gates, not blanket permission from the template.
 
 ## 3. Synthesize
 
-One `Task` call, `subagent_type: generalPurpose`, `model` from the `reflect judgment, divergent, synthesizer` line (default `claude-opus-5-5-xhigh`), agent mode (`readonly: false`). It spot-verifies citations through MCP, and readonly strips MCPs. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. It returns an Accepted / Rejected / Backlog list.
+The primary spawns one synthesizer using the `coordination` task's exact policy model. Use `poteto-investigator` for connected citation checks or `poteto-reviewer` for local-only synthesis. Pass `references/synthesizer.md` with each reviewer's full output inlined where marked. Include the evidence coverage limits and runtime permission restrictions. Its legacy `create-skill` routing label means the local authoring playbook in step 5, not a tool or permission grant. It returns an Accepted / Rejected / Backlog list.
 
 ## 4. Structural enforcement check
 
@@ -88,18 +111,18 @@ Move any Accepted item that a lint rule, script, metadata flag, or runtime check
 
 ## 5. Apply
 
-Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect every future agent in the org. Do not auto-apply.
+Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect future agents that load the skill. Do not auto-apply. Resolve approved targets to project-local paths before writing. Global or out-of-project edits require specific approval.
 
-File each Backlog item to your team's devex or backlog tracker without waiting. Only the Accepted list waits for approval.
+Keep Backlog items in the local handoff. Filing to a tracker is an external write and needs specific confirmation. No commits or pushes.
 
 Follow each approved row's Routing exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): hand to Cursor's built-in `create-skill` skill and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): hand to `create-skill` and run its description-optimization loop.
-- `new skill via create-skill: <kebab-name>`: hand creation to `create-skill`. Do not invent the shape ad hoc.
+- Substantive existing-skill edit, such as a new section. Follow [Authoring or modifying a skill](../pstack-poteto-mode/playbooks/authoring-a-skill.md).
+- `tune description: <skill path>`. Follow the authoring playbook and define a later authorized trigger check. Static wording changes do not prove trigger accuracy.
+- `new skill via create-skill: <kebab-name>` or `new skill: <kebab-name>`. Treat these as proposals. After approval, follow the authoring playbook with a project-local `pstack-<kebab-name>` ID.
 
-If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
+Validate every touched skill's V2 frontmatter, referenced files, and cross-skill links. Use an installed validator if available. Preserve generated host contracts. Label static checks separately from any later executed workflow pilot.
 
 ## 6. Summarize for the user
 
@@ -107,5 +130,6 @@ Short list, no preamble:
 
 - Edits applied: `<skill path>`. What changed, one line each.
 - New skills created: `<skill path>`. One line each (rare).
-- Backlog filed to the devex tracker: `<issue title>` (`<tags>`). One line each.
+- Backlog retained locally, or filed only with specific approval. Include an actual issue pointer only if filing occurred.
 - Dropped: one line per rejected finding + reason from the synthesizer.
+- Coverage: returned session IDs, read ranges, and any incomplete or inaccessible evidence. Name unexecuted workflow checks.

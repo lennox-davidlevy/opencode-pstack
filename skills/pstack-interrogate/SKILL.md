@@ -16,6 +16,9 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
   Use poteto-agent for implementation, poteto-reviewer for local review and
   comment critique, poteto-investigator for connected source investigations.
   The primary performs fan-out; children cannot recursively delegate.
+  Keep at most two active children across owners, runners, and reviewers.
+  Retained live resources and uncertain acquisitions still consume capacity.
+  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
 - Use the runtime's worker tool for parallel writers. Default container workers
   reuse host model authentication and execute only in an offline container.
   Explicit local workers use host worktrees without process isolation.
@@ -30,9 +33,20 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Discover connected MCPs through Code Mode. Missing services are coverage gaps.
   Bugbot comments can be inspected with the forge; this port does not provide
   Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Never use Cursor model slugs. Keep configured OpenCode agent models unless the
-  user requests a different discovered provider/model and variant. Fresh sessions
-  on one model are not multi-model consensus; report a required diversity gap.
+- Read project-local `pstack-models.json` before selecting delegate models. Its
+  six tasks are coordination, implementation, hard, investigation, review, and
+  mechanical. The user-approved policy authorizes those exact discovered
+  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
+- For native `subagent` calls, choose the task and pass its exact policy value as
+  `model`. Keep the agent role and permissions appropriate to the work. Workers
+  accept optional `task`, default from the role through policy `defaults`, and
+  resolve the model themselves. Neither path forces the parent's model. See
+  `pstack-runtime` for selection details. Missing or rejected models are gaps.
+- Panels start with the implementation and review task models. Require distinct
+  configured model IDs, not just variants or fresh contexts. Report diversity
+  gaps without substituting an unapproved model. No `panels` key is needed.
+- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
+  This does not switch an existing session's selected model. Only the human does.
 - Never commit or push, including wrappers. External writes, destructive actions,
   production access, and scope expansion need specific confirmation. Shipping
   ends at a verified local handoff unless separately authorized within these
@@ -40,6 +54,13 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Load pstack-principle-test-behavior-not-implementation before changing tests.
   Keep tests at observable boundaries, justify each by a credible regression,
   and never add test-only production seams. Reviews do not authorize editing.
+- Before every test, build, benchmark, or integration run, establish the resource
+  baseline. After success, failure, or timeout, require PASS from "Check resources
+  after every run" in bundle-root `docs/integration-test-isolation.md`
+  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
+  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
+  Only permitted primary or implementation runners execute checks and authorized
+  cleanup. Read-only roles verify receipts or request a permitted runner.
 - Bundled scripts are real programs with side effects, not permission bypasses.
   Inspect them before use. The local worktree audit is an inventory, not proof
   of inactivity or permission to delete. Unknown activity requires review.
@@ -68,18 +89,18 @@ Before spawning reviewers, state the intent in one clear paragraph from the user
 
 ## Step 3, Spawn Reviewers
 
-Launch all reviewers in a single message with the Task tool, one per entry on the `interrogate reviewers` line in `~/.cursor/rules/pstack-models.mdc`, labeled Reviewer A, B, and so on to match the entry count. If the rule or that line is missing, use the table defaults.
+Launch two native `subagent` reviewers in a single message, using the project-local policy tasks below. Label them Reviewer A and Reviewer B.
 
-| Subagent | Default model |
+| Subagent | Policy task |
 |----------|---------------|
-| Reviewer A | `claude-opus-5-5-xhigh` |
-| Reviewer B | `grok-4.7-xhigh-fast` |
+| Reviewer A | `implementation` |
+| Reviewer B | `review` |
 
-Each reviewer gets `subagent_type: generalPurpose`, `readonly: true`, and `model` set to its configured entry, or its table default when there is no configured line. Omit `model` for an `auto` or `inherit-parent` entry, so that reviewer runs on the parent model.
+Both seats use `agent: poteto-reviewer` with its unchanged read-only permissions. Pass `model` set to the task's exact value in `pstack-models.json`. A task profile changes the model, not the reviewer's authority.
 
-If the Task tool rejects a configured entry, run that reviewer on its family's table default and say so. Families go by prefix: `claude-*`, and `grok-*` with `cursor-grok-*` and `composer-*`. A refused `composer-*` entry runs on Reviewer B's default. With no family match, use Reviewer A's default. If it rejects a table default, spawn with the closest equivalent from the valid slugs in its error message (prefer the same family and reasoning tier), and open a separate PR to update the default table. Do not block the review on the slug issue. Never treat an alias entry as a rejected slug or apply either fallback to it.
+Require distinct provider/model IDs after removing variants. If they match, or a policy model is missing or rejected, report the coverage gap. Do not substitute another model or silently claim multi-model review from fresh contexts. Follow `pstack-runtime` for dispatch rules.
 
-Read `references/reviewer-prompt.md` and fill in the same template for every reviewer with the stated intent, the diff or file contents, the rubric from `references/rubric.md`, and the code-quality lens from `references/code-quality-review.md`. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Read `references/reviewer-prompt.md` and fill in the same template for every reviewer with the stated intent, the diff or file contents, the rubric from `references/rubric.md`, and the code-quality lens from `references/code-quality-review.md`. Keep each policy model and variant unchanged.
 
 ## Step 4, Synthesize
 

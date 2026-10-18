@@ -54,12 +54,17 @@ Expiry and run limits bound the job. Reload resumes armed jobs without replaying
 missed intervals. Loading the same integration in multiple independent servers
 sharing a database is not supported.
 
-Workers start from a verified commit, use a separate local Git worktree, receive
-the current pstack configuration, and carry parent session permissions/model.
+Workers start from a verified commit, use a separate checkout, and carry parent
+session restrictions. Their
+model comes from the selected task in `pstack-models.json`, defaulting by role,
+rather than copying the parent session's model.
 Their record is owned by the spawning session. Inspect/stop requires that owner.
 Startup failures retain worktrees for inspection, never delete them implicitly.
 Local bootstrap copies the authoritative Markdown files and carries restrictions
-on the created session. It refuses an existing `.opencode` directory or symlink
+on the created session. Its generated configuration omits the parent runtime
+plugin and disables bundled MCP servers, snapshots, LSP, and formatters. This
+does not suppress arbitrary inherited global plugins or services.
+It refuses an existing `.opencode` directory or symlink
 rather than replacing checkout configuration. This includes checkouts of this
 bundle itself once its development discovery directory is committed. Use the
 container backend or a separately designed configuration handoff for that case.

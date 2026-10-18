@@ -2,17 +2,21 @@
 
 **You own the plan, not the code. The plan is a checklist an owner runs box by box and the operator audits from the evidence.** The plan is the deliverable. Do not implement.
 
+Plan a verified local handoff. Never commit or push, including through wrappers. External writes need separate specific authorization, which cannot lift this suite's no-commit/no-push rule. Only the primary dispatches owners, nonauthor execution runners, and read-only reviewers. Enforce a hard aggregate maximum of two active children across all those roles, including comment review. Configuration and pilots cannot raise it. Retained resources and uncertain acquisitions count until reconciled.
+
 1. When the change is one or two files with an obvious approach, skip the plan. Say so and stop.
-2. Settle open questions by prototype before you write. Run `playbooks/prototype.md` for each. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
-3. Explore in subagents with `subagent_type: "poteto-agent"` and an explicit model per the Subagents section (the **guard-the-context-window** principle skill). Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section. Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
-4. Copy the skeleton below into the plan file and fill every placeholder. Unless the operator names a path, write the file under the agent store's `docs/`. Keep every heading and every sub-block in the order shown. One section per PR. One PR is one change with its own evidence (the **sequence-verifiable-units** principle skill). Name the execution playbook in **How to read this**. Pick between `playbooks/autopilot-full.md` and `playbooks/autopilot-stack.md` per the rule at the end of `playbooks/autopilot-stack.md`. A standing program takes `playbooks/orchestrate.md`.
-5. Write under `/technical-writing` in full, then `/unslop`. The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Each heading states the task or the finding. No long dashes. No mid-sentence colons.
-6. Resolve `scripts/check-plan.mjs` from the loaded `pstack-poteto-mode` skill's absolute base directory. Run `node "<absolute skill directory>/scripts/check-plan.mjs" "<plan.md>"` and fix every line it prints (the **encode-lessons-in-structure** principle skill).
-7. Hand back. Post the plan path and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
+2. Use existing prototype evidence to settle open questions. Keep exact local artifact identities and screenshots for Appendix A. If a new prototype needs writes beyond the plan grant, record it as a blocked prerequisite rather than implementing it here. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
+3. The primary may dispatch bounded read-only exploration using the `investigation` task's exact policy model and the appropriate role per the Subagents section (the **guard-the-context-window** principle skill). A child planner returns evidence gaps instead of delegating. Each explorer returns file pointers, conventions, test commands, and entry points. No inlined dumps.
+4. Copy the skeleton below into an authorized project-local plan path and fill every placeholder. Do not assume a shared agent store. Keep every heading and every sub-block in the order shown. One section per proposed PR or local item, with its own evidence (the **sequence-verifiable-units** principle skill). Name the execution playbook in **How to read this**. Pick `playbooks/autopilot-full.md` for independent isolated items or `playbooks/autopilot-stack.md` for a dependent chain. A standing program takes `playbooks/orchestrate.md`.
+5. Write under pstack-technical-writing in full, then pstack-unslop. The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Each heading states the task or the finding. No long dashes. No mid-sentence colons.
+6. Resolve and inspect `scripts/check-plan.mjs` from the loaded `pstack-poteto-mode` skill's absolute base directory. When execution is authorized, run `node "<absolute skill directory>/scripts/check-plan.mjs" "<plan.md>"` and fix every line it prints (the **encode-lessons-in-structure** principle skill). Under a static-only grant, check its source requirements without executing it and report the unrun validation. Its legacy PR and Merge headings do not grant publication authority.
+7. Hand back. Post the plan path and actual script output, or label static validation and the unrun check, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
 
-**Verification.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked (the **prove-it-works** principle skill). That sentence is the verification rule. Every verification block opens with it. The live block is mandatory. Ten lanes at the PR head drive the real surface through its control skill, per the **swarm** skill, on the `swarm workers` model (default `grok-4.7-xhigh-fast`). Each lane is one box with a concrete scenario, the screenshot it saves, and its pass predicate. One lane is the **Regression lane against trunk.** It runs the same load-bearing scenario on trunk and head. If trunk does not have the feature, the lane records that fact and gates the behavior the diff adds plus the end state the user waits for instead of inventing a trunk result. The perf gate is dual-sided. Trunk and head must both produce the named metric. If trunk lacks the feature, also isolate the work the diff adds and set an absolute budget for that work plus the end-to-end state the user waits for. Do not claim a ratio between unlike scenarios. The perf block names the metric, the interleaved probe, the trunk baseline measured first, and the rule with the number that fails. A PR that changes an interaction is review-gated. The operator reviews it in chat with screenshots and a video before merge. A PR that changes no interaction writes `**Review gate.** None. <PR id> is not review-gated.` and no boxes under it.
+**Verification.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked (the **prove-it-works** principle skill). That sentence is the verification rule. Every verification block opens with it. The live block is mandatory. Plan ten concrete scenarios, each with a saved screenshot and a pass predicate. Ten lanes describe coverage, never permission for ten concurrent children. Run them in waves within the aggregate cap of two. The primary dispatches permitted nonauthor poteto-agent runners, normally on the `implementation` task model, then independent poteto-reviewer children to read the exact artifacts, diffs, and receipts. Record nonauthor identities. Reviewers cannot run general shell, Playwright, or PTY checks, even when those tools are available. Missing capable permitted runners or required drivers leave the checks `BLOCKED`.
 
-**Control skill.** Pick it by surface. Browser, Electron, and web UIs use `control-ui` from `cursor-team-kit`. CLIs and TUIs use `control-cli` from `cursor-team-kit`. Native mobile uses whatever simulator-driving skill the repo has. A PR that touches two surfaces gets lanes on both. A surface with no control skill is a risk in Appendix C, and its live block still names how each lane drives it.
+One scenario is the **Regression lane against trunk.** Run the same load-bearing scenario on trunk and the candidate artifact. If trunk lacks the feature, record that and gate the behavior added plus the user's end state instead of inventing a trunk result. The perf gate is dual-sided. Both artifacts must produce the named metric. If trunk lacks the feature, isolate the work added and set absolute budgets for that work and the end-to-end state. Do not claim a ratio between unlike scenarios. Name the metric, interleaved probe, measured baseline, and failing threshold. Interaction changes require operator review in chat with screenshots and video before local acceptance. With no interaction change, write `**Review gate.** None. <PR id> is not review-gated.` and no boxes under it. Required hosted Bugbot or cloud verification remains `BLOCKED` without the actual provisioned, authorized service. Local checks are not service parity.
+
+**Drivers.** Pick by surface. Permitted runners use Playwright for web interaction, an owned PTY for interactive CLIs, or an installed IDE or mobile driver. A change touching two surfaces gets scenarios on both. Missing drivers are blockers in Appendix C and the affected live boxes stay unchecked. Offline containers are not cloud VMs. A container runner has only its backend's actual tools, not host Playwright or PTY access.
 
 ````markdown
 # <Program> plan
@@ -23,7 +27,7 @@
 
 One box is one unit of work. Every box names the evidence that checks it. A nested box is a sub-step of the box above it. Check a box only when its evidence exists, a file, a log line, a screenshot, a test run, or a SHA. The body is a how-to. The appendices explain and record.
 
-The program runs `<absolute pstack-poteto-mode skill directory>/playbooks/<execution playbook>.md`. <Name the local handoff boundary; committing, pushing, and automatic shipping are not authorized.>
+The program runs `<absolute pstack-poteto-mode skill directory>/playbooks/<execution playbook>.md`. <Name the local handoff boundary. Never commit or push, including through wrappers. External writes need separate specific authorization and cannot lift that rule.>
 
 Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
 
@@ -38,42 +42,42 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
   - [ ] Read the available surface-verification instructions.
   - [ ] `<absolute pstack-poteto-mode skill directory>/playbooks/opening-a-pr.md`
   - [ ] Load each other `pstack-` leaf skill the program uses.
-- [ ] On the operator's go, perform a bounded audit with the tick prompt below in the active session. Record a stopping condition. No unattended scheduler is installed; report when another session or operator action is needed.
-- [ ] Use this tick prompt, verbatim. "Re-read the execution playbook from trunk. Audit the operation against it and fix drift in this tick. Probe every active lane and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a short status message to the operator in chat only when the audit found a tracked change that no earlier status message reported, such as a PR opened, a code-ready head, a round launched or closed, a verdict, a merge, a stuck agent and the action taken, a blocker added or cleared, or a decision only the operator can make. Name every such change and nothing else. Do not repeat a table, the merged list, or an unchanged blocker. If the audit found none, end the turn with no reply text. Either way, log this tick's row in your decision trail. The row names the items reported, or none."
+- [ ] On the operator's go, perform a bounded audit with the tick prompt below in the active session. Record a stopping condition. Only the primary may request approved `pstack.loop` scheduling with `intervalSeconds`, `maxRuns`, and `durationSeconds`. The server must remain active. Cancel on completion, stop, or expiry. Uncertain dispatch pauses for inspection. Never nest schedules or add another polling loop.
+- [ ] Use this tick prompt, verbatim. "Re-read the current project-local execution playbook and standing orders. Audit drift using actual owned execution receipts and artifact identities. Silence is not quiescence. Hold a stuck lane and reconcile execution, writer ownership, retained resources, and capacity before replacement. Only the primary dispatches, with a hard aggregate maximum of two active children across owners, runners, and reviewers. Post a short status message only for newly observed tracked changes, verdicts, blockers, or operator decisions. Name each change without repeating unchanged status. If none changed, end with no reply text. Log every audit in the local decision trail, including audits with no changes. Do not commit, push, publish, or treat uncertain capacity as released."
 - [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
 
 ### Spawn owners
 
-- [ ] Spawn one owner per PR with the full lifecycle the execution playbook names.
-- [ ] Follow this dependency graph. Start dependent work only after its parent merges, or base it on the parent branch when the execution playbook stacks.
-  - [ ] <PR id> and <PR id> are independent and first. Both branch from `main`.
+- [ ] The primary dispatches one bounded owner per item within the hard aggregate cap of two across owners, runners, and reviewers. No child delegates or starts schedules.
+- [ ] Follow this dependency graph. Independent items verify on isolated baseline-plus-only-item artifacts. Dependent combined artifacts use Autopilot-stack and name the exact retained parent input.
+  - [ ] <PR id> and <PR id> are independent and first. Each starts from the recorded trunk baseline without sibling changes.
   - [ ] <PR id> after <PR id>.
 - [ ] Hold the file boundaries. <PR id or class> touches only `<glob>`.
-- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.
+- [ ] Hold the review gate. <PR ids> change an interaction. They wait for the operator's review in chat with screenshots and a video before local acceptance.
 
 ### PR mechanics, for every PR
 
-- [ ] Resolve the forge once. Default to `gh`; if `command -v origin` succeeds and Origin can resolve the repository, use `origin pr` for every PR operation. Record any fallback to `gh`. Never require `gt`.
-- [ ] Open the PR ready, never draft, per **Opening a PR**. Use the run's built-in PR tool when it has one, else `origin pr create --status open --base <base-branch>` or `gh pr create --base <base-branch>` according to the resolved forge. A stack child targets its parent branch.
-- [ ] Run the repo's lint and typecheck once before the PR-facing push. Push with hooks on.
-- [ ] Run `/deslop` before each commit and `/no-comments` before review.
-- [ ] Triage every Bugbot and security-reviewer comment per `../references/bugbot-triage.md`.
-- [ ] Rebase onto current trunk before the code-ready report and babysit. Keep that merge base in fix rounds. Rebase again only at merge prep, on a `git merge-tree` conflict with trunk, or on a CI failure that comes from a change on trunk.
+- [ ] Record existing PR metadata only through authorized forge reads. Missing access does not block unrelated local preparation. Never require `gt`.
+- [ ] Prepare a local title, description, intended base, and artifact identity per **Opening a PR**. Do not open or mutate a remote PR under the local grant.
+- [ ] Run the repo's bounded lint and typecheck against the exact candidate and retain output. Do not commit or push.
+- [ ] Owners run pstack-unslop. After the candidate exists, the primary commissions pstack-no-comments critique within the aggregate cap. Owners never invoke its spawning step. Return accepted fixes to the scoped owner and refresh affected evidence.
+- [ ] Triage supplied or authorized observed Bugbot and security-reviewer comments per `../references/bugbot-triage.md`. Retain draft replies locally. Required hosted review remains blocked without that service.
+- [ ] Record baseline drift before code-ready acceptance. Follow Shipping's artifact rules for safe preparation and fresh checks, not implicit rebase or publication. Preserve pending dirty work without implicit stash, reset, deletion, or commit. If isolation is unsafe, serialize preparation and verification using stable retained artifacts. Block if no safe artifact can be prepared.
 
 ### Verdict and merge, for every PR
 
-- [ ] A full swarm runs once, at the code-ready head. Another full swarm runs only for new behavior, a redesign, or a large new diff. A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head. Load `pstack-swarm` for each full swarm. One gates lane. The ten live lanes from the PR's **Verify, live** block. The perf lane from its **Verify, perf** block. Two or more audit lanes, each with its own focus, that read the diff and the receipts and distrust the PR body. The root audits the receipts in the merge-ready report before the verdict.
-- [ ] Clean only when every lane is `PASS`. Findings go back to the owner, including a defect that a lane filed as a note. A new head gets a fresh verdict, except for results that stay valid under the patch-id rule in `playbooks/shipping.md`.
-- [ ] <The merge or append rule from the execution playbook, with the patch-id rule from `playbooks/shipping.md`.>
+- [ ] Run full planned coverage on the code-ready artifact and again for new behavior, redesign, or a large new diff. Run affected checks for minor fixes or drift. The primary dispatches nonauthor poteto-agent runners for execution and independent poteto-reviewer children for read-only artifact and receipt audits, in waves of at most two total active children including owners. Reviewers never run general shell, Playwright, or PTY checks. Record each runner's nonauthor identity and permitted tools. Block without a capable permitted runner.
+- [ ] Accept only when every required lane passes and every finding has a disposition. Source inputs stay frozen during execution and review. Record before-and-after input identities, commands, output, and reviewer verdicts. New content needs fresh evidence under `playbooks/shipping.md`, not SHA or patch equality alone.
+- [ ] <The local independent-item or contiguous-stack handoff rule from the execution playbook and Shipping. Keep external publication as an unexecuted operator plan.>
 
 ### Boot recipe, for every live lane
 
-Each live lane runs on its own cloud VM at the PR head. Drive through `control-ui` or `control-cli` from `cursor-team-kit`.
+Each live scenario runs against its exact stable retained artifact through a permitted nonauthor runner. Reviewers read the artifact and receipts afterward. Plan ten scenarios, not ten simultaneous agents. Use waves within the hard aggregate cap of two. Mandatory cloud isolation requires an actual provisioned and authorized backend or stays `BLOCKED`. Local workers and offline containers are not cloud VMs.
 
-- [ ] `git fetch origin <head-branch> && git checkout <head SHA>`.
+- [ ] <Identify the retained baseline-plus-only-item artifact, or the explicit dependent parent-plus-item artifact under Autopilot-stack. Verify input digests before boot. Do not fetch or overwrite pending dirty work to prepare it.>
 - [ ] <Start the backend and the surface. Wait for ready.>
-- [ ] <Deliver input only through the control skill's commands. Name the read-only diagnostics.>
-- [ ] Save every screenshot to `/tmp/swarm-<pr-id>/worker-<n>/<slug>.png` and return the paths with the report.
+- [ ] <Deliver input through permitted Playwright, owned PTY, or the installed driver. Name the bounded diagnostics and generated-output paths. Missing drivers block the scenario.>
+- [ ] Save screenshots and receipts in `<authorized local evidence directory>/<item-id>/lane-<n>/` and return exact paths with input identities and output. Keep artifacts stable and retained for review.
 
 ## <Task as a verb phrase> (<PR id>)
 
@@ -97,7 +101,7 @@ Each live lane runs on its own cloud VM at the PR head. Drive through `control-u
 
 - [ ] <Test file and the case it gains.> Run `<command>`.
 
-**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `<swarm workers model>` at the PR head, per the boot recipe.
+**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. Ten lanes on `<implementation task model>` at the PR head, per the boot recipe. PR head means the exact local candidate identity, including uncommitted content. Run these scenarios in waves within the aggregate two-child cap, never ten concurrent agents.
 
 - [ ] Lane 1. Regression lane against trunk. Run <the same load-bearing scenario> at trunk and head. If trunk lacks the feature, record that and gate <the behavior the diff adds plus the end state the user waits for>. Save `<slug>.png`. Pass when <predicate>.
 - [ ] Lane 2. <Scenario.> Save `<slug>.png`. Pass when <predicate>.
@@ -117,27 +121,27 @@ Each live lane runs on its own cloud VM at the PR head. Drive through `control-u
 - [ ] Baseline. Record the trunk <value> first.
 - [ ] Rule. <Head against trunk, with the number that fails. If the scenarios differ, add absolute budgets for the diff-added work and the user-visible end state instead of an invalid ratio.>
 
-**Review gate.** The operator reviews before merge.
+**Review gate.** The operator reviews before local acceptance.
 
 - [ ] Copy lane <n> screenshots into `<media path>/<pr-id>-review-<slug>.png`.
-- [ ] Record a 30 to 60 second video of the change on a lane VM. Save it as `<media path>/<pr-id>-review.mp4`.
-- [ ] Post the screenshots and the video in chat. Stop at merge-ready. Wait for the operator's click.
+- [ ] Record a 30 to 60 second video through a permitted runner on the verified artifact. Save it as `<media path>/<pr-id>-review.mp4`. Missing recording capability leaves the gate blocked.
+- [ ] Show screenshots and video to the operator in chat within the authorized handoff. Do not upload externally without specific approval. Wait for review without committing, pushing, or merging.
 
 **Merge.**
 
-- [ ] Root's clean verdict at the exact head SHA.
-- [ ] Bugbot triage done.
-- [ ] Rebased onto current trunk after the verdict, patch-id unchanged.
-- [ ] <The owner squash-merges its own PR, or the root appends it to the base-branch stack and the operator lands it bottom-up.>
+- [ ] Primary's accepted independent verdict at the exact local artifact identity.
+- [ ] Required Bugbot triage done against actual hosted evidence, or marked blocked. Local review is not hosted review.
+- [ ] Artifact and baseline identities still match accepted evidence under Shipping's drift rules.
+- [ ] <Local handoff only. Name the independent artifact or contiguous verified stack ceiling. The legacy Merge heading authorizes no commit, push, or remote operation.>
 
 ## Close the program
 
-- [ ] Every box above is checked with its evidence.
+- [ ] Reconcile every box with evidence or an explicit blocker. Unchecked required boxes prevent a verified-completion claim. Retain artifacts, cancel approved schedules, and reconcile every child's resources and writer state.
 - [ ] Reply to the operator with the report the execution playbook names.
 
 ## Appendix A. Prototype evidence
 
-<Each open question a prototype answered, with the branch, the SHA, and the artifact links. Each question that stays unproven.>
+<Each open question existing prototype evidence answered, with exact local artifact identities and links. Each question that stays unproven or blocked.>
 
 ## Appendix B. Alternatives rejected
 
@@ -152,4 +156,4 @@ Each live lane runs on its own cloud VM at the PR head. Drive through `control-u
 <Docs to read before editing. Which units load `pstack-how` and `pstack-interrogate`. The trail follows `pstack-show-me-your-work`.>
 ````
 
-**Reply:** the plan path, the PR ids with their dependencies and the review-gated set, what the prototypes proved and what stays unproven, and the check script's output.
+**Reply.** Give the plan path, item ids and dependencies, review-gated set, existing prototype evidence and unproven questions, and actual validation output or the explicitly unrun check. Separate local handoff from blocked external capabilities.

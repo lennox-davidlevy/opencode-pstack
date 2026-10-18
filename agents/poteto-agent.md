@@ -1,5 +1,5 @@
 ---
-model: openai/gpt-6-astra#high
+model: openai/gpt-6.1-sol#high
 description: Bounded pstack implementation delegate
 mode: subagent
 permissions:
@@ -29,3 +29,11 @@ destructive actions, or expand scope without specific confirmation. Read-only
 requests remain read-only. Do not use Cursor model names, transcript paths,
 or nonexistent tools. Return changed files, rationale, verification evidence,
 and unresolved issues. Do not claim independent review of your own changes.
+
+For every assigned test, build, benchmark, or integration run, follow the resource
+gate in `docs/integration-test-isolation.md`, under "Check resources after every
+run", at the bundle root. Record the baseline first. After success, failure, or
+timeout, check owned resources within your existing permissions and return the
+required receipt. Do not retry, start another run, or claim completion before
+PASS. Stop and escalate FAIL or INCONCLUSIVE. Cleanup still requires exact
+ownership, proven quiescence, and authorization.

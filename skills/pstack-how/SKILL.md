@@ -16,6 +16,9 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
   Use poteto-agent for implementation, poteto-reviewer for local review and
   comment critique, poteto-investigator for connected source investigations.
   The primary performs fan-out; children cannot recursively delegate.
+  Keep at most two active children across owners, runners, and reviewers.
+  Retained live resources and uncertain acquisitions still consume capacity.
+  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
 - Use the runtime's worker tool for parallel writers. Default container workers
   reuse host model authentication and execute only in an offline container.
   Explicit local workers use host worktrees without process isolation.
@@ -30,9 +33,20 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Discover connected MCPs through Code Mode. Missing services are coverage gaps.
   Bugbot comments can be inspected with the forge; this port does not provide
   Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Never use Cursor model slugs. Keep configured OpenCode agent models unless the
-  user requests a different discovered provider/model and variant. Fresh sessions
-  on one model are not multi-model consensus; report a required diversity gap.
+- Read project-local `pstack-models.json` before selecting delegate models. Its
+  six tasks are coordination, implementation, hard, investigation, review, and
+  mechanical. The user-approved policy authorizes those exact discovered
+  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
+- For native `subagent` calls, choose the task and pass its exact policy value as
+  `model`. Keep the agent role and permissions appropriate to the work. Workers
+  accept optional `task`, default from the role through policy `defaults`, and
+  resolve the model themselves. Neither path forces the parent's model. See
+  `pstack-runtime` for selection details. Missing or rejected models are gaps.
+- Panels start with the implementation and review task models. Require distinct
+  configured model IDs, not just variants or fresh contexts. Report diversity
+  gaps without substituting an unapproved model. No `panels` key is needed.
+- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
+  This does not switch an existing session's selected model. Only the human does.
 - Never commit or push, including wrappers. External writes, destructive actions,
   production access, and scope expansion need specific confirmation. Shipping
   ends at a verified local handoff unless separately authorized within these
@@ -40,6 +54,13 @@ replace Cursor assumptions throughout this skill and all linked playbooks.
 - Load pstack-principle-test-behavior-not-implementation before changing tests.
   Keep tests at observable boundaries, justify each by a credible regression,
   and never add test-only production seams. Reviews do not authorize editing.
+- Before every test, build, benchmark, or integration run, establish the resource
+  baseline. After success, failure, or timeout, require PASS from "Check resources
+  after every run" in bundle-root `docs/integration-test-isolation.md`
+  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
+  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
+  Only permitted primary or implementation runners execute checks and authorized
+  cleanup. Read-only roles verify receipts or request a permitted runner.
 - Bundled scripts are real programs with side effects, not permission bypasses.
   Inspect them before use. The local worktree audit is an inventory, not proof
   of inactivity or permission to delete. Unknown activity requires review.
@@ -52,7 +73,7 @@ grants broader autonomy, the OpenCode contract above replaces that assumption.
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Every spawn is a Task subagent with `subagent_type: generalPurpose` and `readonly: true`. Explorers use the `how explorer` line in the `pstack-models.mdc` rule (default `grok-4.7-xhigh-fast`), and every explainer uses the `how explainer` line (default `claude-opus-5-5-xhigh`). Set `model` to that line's value, or to the default if the rule or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the Task tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
+Explorers use the `investigation` task profile. Explainers use `coordination`. Read both exact model strings from project-local `pstack-models.json` and pass them as `model` to native `subagent` calls. Use `poteto-reviewer` for local read-only exploration or explanation, and `poteto-investigator` when connected-source queries are needed. Task selection never broadens permissions. Follow `pstack-runtime` for missing or rejected models. Do not adjust variants or substitute a fallback.
 
 ## 1. Assess complexity
 

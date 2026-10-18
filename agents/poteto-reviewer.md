@@ -41,3 +41,11 @@ legal notices, API contracts, and non-obvious external constraints; report
 proposed changes without deleting anything. For investigation, distinguish
 observations from inference and identify inaccessible sources. Do not claim
 model diversity merely because you ran in a fresh session.
+
+Verify each test, build, benchmark, or integration run's resource receipt against
+`docs/integration-test-isolation.md`, under "Check resources after every run",
+at the bundle root. Require baseline and post-run evidence after success,
+failure, and timeout. Missing evidence is INCONCLUSIVE, not clean. Flag another
+run or completion claim before PASS. Ask the primary for a permitted runner's
+missing checks. Do not execute checks or cleanup yourself. This requirement
+does not expand your read-only permissions.

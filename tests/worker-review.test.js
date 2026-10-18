@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import plugin from '../plugins/pstack/index.js';
 import { WorkerHistory } from '../plugins/pstack/worker-history.js';
@@ -17,23 +17,73 @@ const unavailable = { message: 'Approved worker manifest is unavailable or chang
 const toolContext = () => ({ sessionID: 'ses_requester', agent: 'poteto',
   messageID: 'msg_fixture', id: randomUUID(), signal: new AbortController().signal });
 
+async function ownedDirectory(t, prefix) {
+  const directory = await makeTempDir(prefix);
+  const pending = new Set();
+  let disposal;
+  const owned = {
+    directory,
+    stop() {},
+    async close() {},
+    track(operation) {
+      const promise = Promise.resolve(operation);
+      pending.add(promise);
+      promise.then(() => pending.delete(promise), () => pending.delete(promise));
+      return promise;
+    },
+    dispose() {
+      return disposal ??= (async () => {
+        let deadline;
+        try {
+          await Promise.race([
+            (async () => {
+              owned.stop();
+              while (pending.size) await Promise.allSettled([...pending]);
+              await owned.close();
+            })(),
+            new Promise((_, reject) => {
+              deadline = setTimeout(() => reject(new Error('Fixture resources did not settle')), 5000);
+            }),
+          ]);
+          await rm(directory, { recursive: true, force: true });
+        } catch (cause) {
+          throw new Error(`Review fixture cleanup incomplete; retained ${directory}`, { cause });
+        } finally { clearTimeout(deadline); }
+      })();
+    },
+  };
+  t.after(() => owned.dispose());
+  return owned;
+}
+
 // The SDK services and Docker process are fixtures. Tool registration, review,
 // WorkerHistory and repository capture are production code, not native dispatch.
-async function fixture(t, engineDirectory) {
-  const project = await makeTempDir('pstack-worker-review-');
+async function fixture(t, engine, clone = directory =>
+  exec('git', ['clone', '--quiet', '--no-hardlinks', '--', source, directory])) {
+  const owned = await ownedDirectory(t, 'pstack-worker-review-');
+  engine.children.push(owned);
+  return owned.track(setupFixture(owned, engine, clone));
+}
+
+async function setupFixture(owned, engine, clone) {
+  const project = owned.directory;
+  const engineDirectory = engine.directory;
   const directory = join(project, 'checkout');
-  await exec('git', ['clone', '--quiet', '--no-hardlinks', '--', source, directory]);
+  await clone(directory);
   const ref = (await exec('git', ['rev-parse', 'HEAD'], { cwd: directory })).stdout.trim();
   await writeFile(join(directory, 'review-output.txt'), 'fixture output bytes');
   const worker = { id: randomUUID(), owner: 'ses_owner', sessionID: 'ses_worker', directory,
     role: 'poteto-agent', backend: 'container', ref, engine: 'docker' };
   worker.container = `pstack-${worker.id}`;
-  const container = { Id: 'fixture-container-id', Config: { Labels: {
+  const container = { Id: hash(worker.id), Config: { Labels: {
     'pstack.owner': worker.owner, 'pstack.worker': worker.id,
   } }, State: { Status: 'exited', Running: false, Paused: false, Restarting: false,
     ExitCode: 0, StartedAt: 'fixture-start', FinishedAt: 'fixture-finish' }, RestartCount: 0 };
   const containerFile = join(engineDirectory, worker.container + '.json');
-  const saveContainer = () => writeFile(containerFile, JSON.stringify(container));
+  const saveContainer = () => Promise.all([
+    owned.track(writeFile(containerFile, JSON.stringify(container))),
+    owned.track(writeFile(join(engineDirectory, container.Id + '.json'), JSON.stringify(container))),
+  ]);
   await saveContainer();
   const prefix = hash(project).slice(0, 24) + '/worker/';
   const records = new Map([[prefix + worker.id, structuredClone(worker)]]);
@@ -51,8 +101,15 @@ async function fixture(t, engineDirectory) {
   const requests = [];
   const pending = [];
   const waiting = [];
+  const admissions = new Set();
   const hooks = [];
   const denied = new Error('Fixture policy denied');
+  let stopping = false;
+  owned.stop = () => {
+    stopping = true;
+    for (const admission of admissions) admission.reject(denied);
+    for (const waiter of waiting.splice(0)) waiter.reject(denied);
+  };
   let effect = 'allow';
   const permission = {
     async hook(name, hook) { assert.equal(name, 'evaluate'); hooks.push(hook); },
@@ -60,11 +117,13 @@ async function fixture(t, engineDirectory) {
       requests.push(structuredClone(request));
       const event = { ...request, effect };
       for (const hook of hooks) await hook(event);
+      if (stopping) throw denied;
       if (event.effect === 'deny') throw denied;
       assert.equal(event.effect, 'ask', 'Configured or saved allows must not bypass fresh approval');
       return new Promise((approve, reject) => {
         const admission = { request: structuredClone(request), event, approve, reject };
-        if (waiting.length) waiting.shift()(admission);
+        admissions.add(admission);
+        if (waiting.length) waiting.shift().resolve(admission);
         else pending.push(admission);
       });
     },
@@ -75,9 +134,13 @@ async function fixture(t, engineDirectory) {
     saveContainer, denied, storage, permission,
     sessionDirectory: project,
     setEffect(value) { effect = value; },
-    approval() { return pending.length ? Promise.resolve(pending.shift()) : new Promise(resolve => waiting.push(resolve)); },
+    approval() {
+      return pending.length ? Promise.resolve(pending.shift()) :
+        owned.track(new Promise((resolve, reject) => waiting.push({ resolve, reject })));
+    },
     get record() { return records.get(prefix + worker.id); },
   };
+  owned.close = async () => { throw new Error('Plugin setup did not return cleanup; resource closure is uncertain'); };
   const cleanup = await plugin.setup({ location: { directory: project }, storage, permission,
     session: { async get({ sessionID }) {
       sessions.push(sessionID);
@@ -86,12 +149,13 @@ async function fixture(t, engineDirectory) {
     } },
     tool: { async transform(edit) { edit({ namespace() {}, add(tool) { tools.set(tool.name, tool); } }); } },
   });
-  t.after(cleanup);
+  owned.close = cleanup;
   const baseline = await workerManifest(new WorkerHistory(storage, prefix), worker.owner, worker.id);
   reads.length = 0;
   f.input = { id: worker.id, expectedOwner: worker.owner, artifactDigest: baseline.artifactDigest };
   f.tool = tools.get('worker_review');
-  f.run = (input = f.input, context = toolContext()) => f.tool.execute(input, context).then(result => JSON.parse(result.content));
+  f.run = (input = f.input, context = toolContext()) =>
+    owned.track(f.tool.execute(input, context).then(result => JSON.parse(result.content)));
   f.approved = async (input = f.input) => {
     const result = f.run(input);
     result.catch(() => {});
@@ -102,22 +166,84 @@ async function fixture(t, engineDirectory) {
   return f;
 }
 
+test('review fixture teardown drains work and closes resources before removing only its directory', async t => {
+  const owned = await ownedDirectory(t, 'pstack-worker-review-');
+  const neighbor = await ownedDirectory(t, 'pstack-worker-review-');
+  await writeFile(join(neighbor.directory, 'keep'), 'unrelated fixture');
+  const work = Promise.withResolvers();
+  const closing = Promise.withResolvers();
+  const closed = Promise.withResolvers();
+  owned.track(work.promise.then(() => writeFile(join(owned.directory, 'late-write'), 'settled')));
+  owned.close = async () => {
+    assert.equal(await readFile(join(owned.directory, 'late-write'), 'utf8'), 'settled');
+    closing.resolve();
+    await closed.promise;
+    await stat(owned.directory);
+  };
+  const disposal = owned.dispose();
+  await stat(owned.directory);
+  work.resolve();
+  await closing.promise;
+  await stat(owned.directory);
+  closed.resolve();
+  await disposal;
+  await assert.rejects(stat(owned.directory), { code: 'ENOENT' });
+  assert.equal(await readFile(join(neighbor.directory, 'keep'), 'utf8'), 'unrelated fixture');
+});
+
+test('review fixture teardown removes a partial checkout after clone setup fails', async t => {
+  const engine = { children: [] };
+  const hooks = [];
+  const failure = new Error('Clone failed after creating files');
+  let project;
+  t.after(async () => { if (project) await rm(project, { recursive: true, force: true }); });
+  await assert.rejects(fixture({ after(hook) { hooks.push(hook); } }, engine, async directory => {
+    project = resolve(directory, '..');
+    await mkdir(join(directory, '.git'), { recursive: true });
+    await writeFile(join(directory, '.git', 'partial'), 'partial clone');
+    throw failure;
+  }), error => error === failure);
+  await stat(join(project, 'checkout', '.git', 'partial'));
+  for (const hook of hooks) await hook();
+  await assert.rejects(stat(project), { code: 'ENOENT' });
+});
+
+test('review fixture teardown reports closure failure and retains the owned directory', async t => {
+  let teardown;
+  const owned = await ownedDirectory({ after(hook) { teardown = hook; } }, 'pstack-worker-review-');
+  t.after(() => rm(owned.directory, { recursive: true, force: true }));
+  const failure = new Error('Resource closure failed');
+  owned.close = async () => { throw failure; };
+  await assert.rejects(teardown(), error => error.cause === failure && error.message.includes(owned.directory));
+  await stat(owned.directory);
+});
+
 test('manifest-only review uses the registered production tool and real Git artifacts', { timeout: 120000 }, async t => {
-  const engineDirectory = await makeTempDir('pstack-review-engine-fixture-');
-  await writeFile(join(engineDirectory, 'docker'), `#!${process.execPath}
+  const engine = await ownedDirectory(t, 'pstack-review-engine-fixture-');
+  engine.children = [];
+  engine.close = async () => {
+    await Promise.all(engine.children.map(child => child.dispose()));
+    for (const child of engine.children) await assert.rejects(stat(child.directory), { code: 'ENOENT' });
+  };
+  const engineDirectory = engine.directory;
+  await engine.track(writeFile(join(engineDirectory, 'docker'), `#!${process.execPath}
 const fs = require('node:fs');
 const path = require('node:path');
 const base = __dirname;
 fs.appendFileSync(path.join(base, 'calls'), JSON.stringify(process.argv.slice(2)) + '\\n');
-if (process.argv.length !== 4 || process.argv[2] !== 'inspect' || !/^pstack-[a-f0-9-]+$/.test(process.argv[3])) process.exit(9);
+if (process.argv.length !== 4 || process.argv[2] !== 'inspect' || !/^(pstack-[a-f0-9-]+|[a-f0-9]{64})$/.test(process.argv[3])) process.exit(9);
 process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.json'), 'utf8') + ']');
-`, { mode: 0o755 });
+`, { mode: 0o755 }));
   const oldPath = process.env.PATH;
   process.env.PATH = `${engineDirectory}:${oldPath}`;
   t.after(() => { process.env.PATH = oldPath; });
+  t.after(async () => {
+    await engine.dispose();
+    await assert.rejects(stat(engineDirectory), { code: 'ENOENT' });
+  });
 
   await t.test('only exact manifest inputs are accepted, before any lookup or approval', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     assert.deepEqual(f.tool.input.required, ['id', 'expectedOwner', 'artifactDigest']);
     assert.equal(f.tool.input.additionalProperties, false);
     for (const input of [null, [], {}, { ...f.input, id: '../worker' }, { ...f.input, expectedOwner: '*' },
@@ -131,7 +257,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
   });
 
   await t.test('execution role and source come only from tool context', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     for (const patch of [{ agent: 'poteto-agent' }, { agent: 'poteto-reviewer' }, { agent: 'poteto-investigator' },
       { agent: undefined }, { id: undefined }, { messageID: undefined }, { sessionID: '../session' }]) {
       await assert.rejects(f.run(f.input, { ...toolContext(), ...patch }), /primary tool context/);
@@ -142,7 +268,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
   });
 
   await t.test('requester outside the canonical project cannot request approval or inspect a worker', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     f.sessionDirectory = engineDirectory;
     await assert.rejects(f.run(), /requester is unavailable/);
     assert.deepEqual(f.reads, []);
@@ -150,7 +276,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
   });
 
   await t.test('deny and rejection preserve the permission error and perform no protected lookup', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     const before = await readFile(join(engineDirectory, 'calls'), 'utf8');
     f.setEffect('deny');
     await assert.rejects(f.run(), error => error === f.denied);
@@ -164,7 +290,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
   });
 
   await t.test('every read asks for the canonical exact tuple, then releases metadata without mutation', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     const before = structuredClone([...f.records]);
     const status = () => exec('git', ['status', '--porcelain=v1'], { cwd: f.worker.directory }).then(r => r.stdout);
     const statusBefore = await status();
@@ -200,7 +326,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
 
   for (const mismatch of ['worker', 'owner', 'digest', 'project']) {
     await t.test(`approved wrong ${mismatch} fails without revealing paths or replacement digest`, async t => {
-      const f = await fixture(t, engineDirectory);
+      const f = await fixture(t, engine);
       const input = { ...f.input };
       if (mismatch === 'worker') input.id = randomUUID();
       if (mismatch === 'owner') input.expectedOwner = 'ses_other';
@@ -217,7 +343,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
 
   for (const change of ['artifact', 'owner', 'session', 'local', 'running', 'paused', 'restarting', 'requester project', 'missing checkout']) {
     await t.test(`a waiting approval does not admit changed ${change}`, async t => {
-      const f = await fixture(t, engineDirectory);
+      const f = await fixture(t, engine);
       const result = f.run();
       const check = assert.rejects(result, unavailable);
       const approval = await f.approval();
@@ -240,7 +366,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
 
   for (const change of ['identity', 'owner', 'artifact', 'lifecycle']) {
     await t.test(`post-capture ${change} revalidation prevents release`, async t => {
-      const f = await fixture(t, engineDirectory);
+      const f = await fixture(t, engine);
       let reads = 0;
       f.onRead = async () => {
         if (++reads < 3) return;
@@ -257,7 +383,7 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
   }
 
   await t.test('each concurrent call requires its own approval; later permission changes do not promise cancellation', async t => {
-    const f = await fixture(t, engineDirectory);
+    const f = await fixture(t, engine);
     const first = f.run();
     const a = await f.approval();
     const second = f.run();
@@ -271,6 +397,16 @@ process.stdout.write('[' + fs.readFileSync(path.join(base, process.argv[3] + '.j
     await rejected;
     await assert.rejects(f.run(), error => error === f.denied);
     assert.equal(f.requests.length, 3);
+  });
+
+  await t.test('teardown rejects an abandoned approval before removing its checkout', async t => {
+    const f = await fixture(t, engine);
+    const rejected = assert.rejects(f.run(), error => error === f.denied);
+    await f.approval();
+    t.after(async () => {
+      await rejected;
+      await assert.rejects(stat(f.project), { code: 'ENOENT' });
+    });
   });
 
   const calls = (await readFile(join(engineDirectory, 'calls'), 'utf8')).trim().split('\n').map(line => JSON.parse(line));

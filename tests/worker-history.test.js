@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { WorkerHistory } from '../plugins/pstack/worker-history.js';
+import { makeTempDir } from './helpers/temp.js';
 
 const prefix = 'c02b5ff87bbbc27af031746f/worker/';
 const foreignPrefix = '8da73f1424136d2dad17354c/worker/';
@@ -183,4 +186,66 @@ test('message transport errors propagate without retrying or starting the worker
     throw failure;
   }), error => error === failure);
   assert.equal(attempts, 1);
+});
+
+test('ledger-backed history cannot default to or override with the ambient legacy transport', async t => {
+  const root = await makeTempDir('pstack-history-transport-');
+  await writeFile(join(root, 'opencode'), `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(join(root, 'unexpected-cli'))}, 'invoked'); process.exitCode = 91;\n`, { mode: 0o700 });
+  const previousPath = process.env.PATH;
+  process.env.PATH = root;
+  t.after(async () => { process.env.PATH = previousPath; await rm(root, { recursive: true, force: true }); });
+  const record = worker(1, { server: { endpoint: 'http://127.0.0.1:1234' } });
+  const source = {
+    async get() { return record; },
+    async scan() { return { entries: [] }; },
+    async messages(expectedOwner, expectedID, limit, cursor, signal) {
+      assert.equal(expectedOwner, owner);
+      assert.equal(expectedID, record.id);
+      assert.equal(limit, 2);
+      assert.equal(cursor, 'cursor');
+      assert.equal(signal, controller.signal);
+      return { data: [{ text: 'bound history' }], cursor: {} };
+    },
+  };
+  const controller = new AbortController();
+  const history = new WorkerHistory(storage([]), prefix, source);
+  assert.deepEqual(await history.messages(owner, record.id, 2, 'cursor', controller.signal), { data: [{ text: 'bound history' }], cursor: {} });
+  const unbound = new WorkerHistory(storage([]), prefix, { ...source, messages: undefined });
+  await assert.rejects(unbound.messages(owner, record.id));
+  let requests = 0;
+  const request = async () => { requests++; throw new Error('Forbidden ambient transport'); };
+  await assert.rejects(history.messages(owner, record.id, 2, 'cursor', controller.signal, request));
+  await assert.rejects(new WorkerHistory(storage([[prefix, record]]), prefix).messages(owner, record.id, 2, 'cursor', controller.signal, request));
+  assert.equal(requests, 0, 'Rejected calls must not invoke the ambient transport');
+  assert.ok(!(await readdir(root)).includes('unexpected-cli'), 'Rejected calls must not invoke the ambient CLI');
+});
+
+test('ledger-backed cursors survive unavailable projection reads and writes and keep degraded pages in owner scope', async () => {
+  const records = [worker(1),worker(2),worker(3)];
+  const key = Buffer.alloc(32,7);
+  const source = {
+    async get(expected,id) { return records.find(record => record.owner === expected && record.id === id); },
+    async cursorKey() { return key; },
+    async scan(expected,limit,after,ledgerOnly) {
+      assert.ok(after === undefined || ledgerOnly,'Degraded continuation must not silently restore incomplete legacy coverage');
+      const entries = records.filter(record => record.owner === expected && (!after || prefix + record.id > after))
+        .map(value => ({key:prefix+value.id,value}));
+      return {entries:entries.slice(0,limit),next:entries.length>limit ? entries[limit-1].key : undefined,
+        ledgerOnly:true,warnings:['ledger-only; incomplete legacy coverage']};
+    },
+  };
+  const unavailable = {async get(){throw new Error('Projection get failed');},async set(){throw new Error('Projection set failed');},async scan(){throw new Error('Projection scan failed');}};
+  let page = await new WorkerHistory(unavailable,prefix,source).list(owner,1);
+  const found = [];
+  while(true) {
+    found.push(...page.workers);
+    assert.match(page.warnings[0],/incomplete legacy coverage/);
+    if(!page.next) break;
+    await assert.rejects(new WorkerHistory(unavailable,prefix,source).list('ses_other',1,page.next),/Invalid worker cursor/);
+    page = await new WorkerHistory(unavailable,prefix,source).list(owner,1,page.next);
+  }
+  assert.deepEqual(found,records);
+  const corrupt = new Error('Ledger corrupt');
+  const first = await new WorkerHistory(unavailable,prefix,source).list(owner,1);
+  await assert.rejects(new WorkerHistory(unavailable,prefix,{...source,async cursorKey(){throw corrupt;}}).list(owner,1,first.next),error => error === corrupt);
 });

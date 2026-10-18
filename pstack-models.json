@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "tasks": {
+    "coordination": "openai/gpt-6.1-sol#high",
+    "implementation": "openai/gpt-6.1-sol#high",
+    "hard": "openai/gpt-6.1-sol#xhigh",
+    "investigation": "openai/gpt-6.1-sol#medium",
+    "review": "openai/gpt-6-astra#high",
+    "mechanical": "openai/gpt-5.3-codex-spark#high"
+  },
+  "defaults": {
+    "poteto": "coordination",
+    "poteto-agent": "implementation",
+    "poteto-reviewer": "review",
+    "poteto-investigator": "investigation"
+  }
+}

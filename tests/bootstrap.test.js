@@ -35,6 +35,12 @@ function snapshot(path) {
 function fixture(t) {
   if (!bun) { t.skip('Bun is not installed; no downloads attempted'); return null; }
   const root = mkdtempSync(join(existsSync('/tmp/opencode') ? '/tmp/opencode' : tmpdir(), 'bootstrap-'));
+  let unsettled = false;
+  t.after(() => {
+    assert.equal(unsettled, false, `Bootstrap subprocess cleanup is uncertain; retained ${root}`);
+    rmSync(root, { recursive: true, force: true });
+    assert.equal(existsSync(root), false);
+  });
   const scripts = join(root, 'tools with spaces');
   mkdirSync(scripts);
   for (const name of ['bootstrap.ts', 'package.json', 'bun.lock', 'orch', 'watch-pr']) {
@@ -79,6 +85,7 @@ process.exit(1);
     const command = direct ? join(scripts, entry) : bun;
     const argv = direct ? args : [...flags, join(scripts, entry), ...args];
     const result = spawnSync(command, argv, { cwd: scripts, env: { ...env, ...extraEnv }, encoding: 'utf8', timeout: 10000 });
+    unsettled ||= Boolean(result.error || result.signal);
     assert.equal(result.error, undefined, String(result.error));
     assert.equal(result.signal, null, result.stderr);
     return result;
