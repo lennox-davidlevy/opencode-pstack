@@ -80,6 +80,7 @@ async function main() {
         ['shell', 'rm -rf example', writer ? 'ask' : 'deny'],
         ['shell', 'python3 -c "print(1)"', writer ? 'allow' : 'deny'],
         ['pstack_history', '*', 'allow'],
+        ...(agent === 'poteto' ? [['pstack_wakeup', 'job-id', 'allow']] : []),
         ['pstack_schedule', '*', agent === 'poteto' ? 'ask' : 'deny'],
         ['pstack_worker', '*', agent === 'poteto' ? 'ask' : 'deny'],
         ['pstack_worker_review', '*', agent === 'poteto' ? 'ask' : 'deny'],

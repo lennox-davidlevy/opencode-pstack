@@ -17,8 +17,8 @@ Re-import with `python3 scripts/import_pstack.py <upstream>/pstack --revision <s
 | `AskQuestion` | `question` | Works |
 | Per-role models (`pstack-models.mdc`) | `pstack-models.json`, six tasks, passed as `model` | Works. Primary needs `--model` on `opencode run` |
 | Transcript mining (recall, reflect, pickup) | `pstack.history_list` / `history_read` | Works, current project only |
-| `/loop`, heartbeats | `pstack.loop` (durable, bounded, needs approval) | Implemented and unit tested. No live end-to-end pilot |
-| Shipping: commit, push, PR, babysit | permission-gated `git commit` / `git push` (`ask`), `gh`, bundled `watch-pr` / `orch` (Bun) | Commit and push verified. PR create / babysit need `gh` auth and are not piloted |
+| `/loop`, heartbeats | `pstack.loop` (durable, bounded, needs approval) | Works live: scheduled wakeups delivered and the job completed. One babysit run saw `Wakeup permission is not allow` at delivery and did not reproduce; if it recurs, check that run's `pstack_wakeup` decision |
+| Shipping: commit, push, PR, babysit | permission-gated `git commit` / `git push` (`ask`), `gh`, bundled `watch-pr` / `orch` (Bun) | PR flow verified against a real repo: branch, commit, push, ready PR, CI green, independent review. `watch-pr` needs `bun install` in the bundle on first use (not exercised; the pilot used `gh`) |
 | CLI / TUI control | `pstack.terminal` (PTY bridge) | Implemented and tested |
 | Web UI control | Playwright MCP | Configured. Needs Chrome |
 | Cloud agents (`environment: "cloud"`) | none. `pstack.worker` runs a committed ref in an offline container (experimental, Linux, max 2) | Gap. Not a cloud replacement |
@@ -35,11 +35,14 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 - Swarm: three parallel native verifier lanes, aggregation, and a `history_list` /
   `history_read` recall of the previous session.
 - Shipping: commit and push to a remote, hash verified on the remote.
+- Full PR loop on a private GitHub scratch repo: red CI on master, poteto fixed it on a branch,
+  opened a ready PR with `gh`, babysat CI to green, and had `poteto-reviewer` review the diff.
+- `pstack.loop`: two scheduled wakeups delivered in a live session.
 
 ## Known gaps and next work
 
-- Pilot the remaining playbooks: autopilot, babysit against a real PR, hillclimb,
-  `pstack.loop` wakeups, PTY-driven app verification.
+- Pilot the remaining playbooks: autopilot, hillclimb, `watch-pr` after `bun install`,
+  PTY-driven app verification.
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
 - `docs/model-policy.md` describes the model task policy.
