@@ -43,6 +43,11 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
   read reply, close) as the `control-cli` mapping.
 - Interrogate / how: panel review and explainer via `poteto-reviewer` subagents, read-only,
   at most two children at once.
+- Setup, arena, recall and reflect: `pstack-setup-pstack` validated the six-task policy against
+  `opencode models` without editing; the arena ran two contenders in separate worktrees, a
+  `poteto-reviewer` judge scored them and the winner was adopted locally; recall and reflect
+  read project history and proposed skill improvements read-only. Reflect's proposals (bounded
+  history projection, native skill-use evidence) are listed in the scratch run's backlog, not applied.
 - `pstack.loop`: two scheduled wakeups delivered in a live session.
 - Autopilot-full: two independent items, one `poteto-agent` owner each in its own git worktree
   (cap of 2 children respected), independent `poteto-reviewer`, two ready PRs. CI on both was red
@@ -56,7 +61,8 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 
 ## Known gaps and next work
 
-- Pilot the remaining skills (arena, reflect, recall, setup-pstack, automate-me).
+- Pilot automate-me and make-bot-ui (needs an external bot endpoint). Recall on large projects
+  produces very large history reads; a bounded history projector would help.
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
 - `docs/model-policy.md` describes the model task policy.
