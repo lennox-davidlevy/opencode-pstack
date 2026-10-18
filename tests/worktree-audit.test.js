@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 const script = fileURLToPath(new URL('../skills/pstack-poteto-mode/scripts/worktree-audit.sh', import.meta.url));
 const realGit = spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.trim();
 
+const roots = [];
+after(() => { for (const root of roots) rmSync(root, { recursive: true, force: true }); });
+
 function fixture() {
   const root = mkdtempSync(join(existsSync('/tmp/opencode') ? '/tmp/opencode' : tmpdir(), 'worktree-audit-'));
+  roots.push(root);
   const repo = join(root, 'repo with spaces');
   mkdirSync(repo);
   const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
