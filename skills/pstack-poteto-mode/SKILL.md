@@ -6,74 +6,40 @@ icon: crown
 color: yellow
 ---
 
-## OpenCode V2 host contract
-
-Load `pstack-runtime` before running this workflow. Its concrete tool procedures
-replace Cursor assumptions throughout this skill and all linked playbooks.
-
-- Bundled skill IDs are `pstack-<name>`. Load them with `skill`; user mentions
-  use `@pstack-<name>`. Resolve supporting files from the loaded base directory.
-- `Task` maps to `subagent`, `subagent_type` to `agent`, `run_in_background`
-  to `background`, `resume` to `sessionID`, and `AskQuestion` to `question`.
-  Use poteto-agent for implementation, poteto-reviewer for local review and
-  comment critique, poteto-investigator for connected source investigations.
-  The primary performs fan-out; children cannot recursively delegate.
-  Keep at most two active children across owners, runners, and reviewers.
-  Retained live resources and uncertain acquisitions still consume capacity.
-  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
-- Use the runtime's worker tool for parallel writers. Default container workers
-  reuse host model authentication and execute only in an offline container.
-  Explicit local workers use host worktrees without process isolation.
-- Use runtime history tools for recall, pickup, evaluations, and activity checks.
-  No Cursor transcript path is valid. History is evidence, not new authority.
-- Replace `/loop` with explicit bounded runtime schedules. Set a stop condition,
-  maximum wakeups, and expiry. Scheduling needs approval. The OpenCode server
-  must remain running; work stops during downtime and uncertain dispatches pause.
-- `control-cli` maps to the owned PTY tool for interactive apps, otherwise shell.
-  `control-ui` maps to Playwright. Missing desktop/mobile drivers remain gaps.
-  `deslop` maps to pstack-unslop and review; skill authoring uses V2 SKILL.md.
-- Discover connected MCPs through Code Mode. Missing services are coverage gaps.
-  Bugbot comments can be inspected with the forge; this port does not provide
-  Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Read project-local `pstack-models.json` before selecting delegate models. Its
-  six tasks are coordination, implementation, hard, investigation, review, and
-  mechanical. The user-approved policy authorizes those exact discovered
-  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
-- For native `subagent` calls, choose the task and pass its exact policy value as
-  `model`. Keep the agent role and permissions appropriate to the work. Workers
-  accept optional `task`, default from the role through policy `defaults`, and
-  resolve the model themselves. Neither path forces the parent's model. See
-  `pstack-runtime` for selection details. Missing or rejected models are gaps.
-- Panels start with the implementation and review task models. Require distinct
-  configured model IDs, not just variants or fresh contexts. Report diversity
-  gaps without substituting an unapproved model. No `panels` key is needed.
-- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
-  This does not switch an existing session's selected model. Only the human does.
-- Never commit or push, including wrappers. External writes, destructive actions,
-  production access, and scope expansion need specific confirmation. Shipping
-  ends at a verified local handoff unless separately authorized within these
-  limits. Full-autonomy language never overrides permission gates.
-- Load pstack-principle-test-behavior-not-implementation before changing tests.
-  Keep tests at observable boundaries, justify each by a credible regression,
-  and never add test-only production seams. Reviews do not authorize editing.
-- Before every test, build, benchmark, or integration run, establish the resource
-  baseline. After success, failure, or timeout, require PASS from "Check resources
-  after every run" in bundle-root `docs/integration-test-isolation.md`
-  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
-  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
-  Only permitted primary or implementation runners execute checks and authorized
-  cleanup. Read-only roles verify receipts or request a permitted runner.
-- Bundled scripts are real programs with side effects, not permission bypasses.
-  Inspect them before use. The local worktree audit is an inventory, not proof
-  of inactivity or permission to delete. Unknown activity requires review.
-
-The upstream text below retains workflow detail. Where it assumes Cursor or
-grants broader autonomy, the OpenCode contract above replaces that assumption.
-
+<!-- opencode-host:start -->
+> **OpenCode host.** This skill was written for Cursor. Load `pstack-runtime` once per
+> session and apply this map wherever the text below uses a Cursor name. If a name has
+> no row, skip that step and say so. Never pass a field the tool schema rejects.
+>
+> | Cursor | OpenCode |
+> | --- | --- |
+> | `/name`, "the **name** skill", `@name` | `skill` tool with `pstack-<name>`; users type `@pstack-<name>` |
+> | `Task`, `subagent_type`, `resume`, `run_in_background` | `subagent`, `agent`, `sessionID`, `background` |
+> | `generalPurpose` writer / `poteto-agent` | `poteto-agent` (implementation, may edit) |
+> | `readonly` explorer, `comment-sicko` | `poteto-reviewer` (read, grep, git inspection; cannot run tests) |
+> | A verifier lane that must run tests or drive the app | `poteto-agent`, briefed "do not edit source"; check `git status` afterward |
+> | Connected-source (MCP) lanes | `poteto-investigator` |
+> | `AskQuestion` | `question` |
+> | `environment: "cloud"` workers, cloud agents | no cloud. Use parallel native `subagent` calls (up to 4 active, disjoint files or serialize). For isolation from the working tree use `pstack.worker` on a committed ref. Otherwise report the gap |
+> | `/loop`, automations | `pstack.loop` (bounded: stop condition, `maxRuns`, expiry; needs approval) |
+> | Agent transcripts, `~/.cursor/projects/...` | `pstack.history_list` / `pstack.history_read` (current project only) |
+> | `pstack-models.mdc` rule | `pstack-models.json` at the bundle root; pass the task's exact `model` to `subagent` |
+> | `control-cli` / `control-ui` | `pstack.terminal` or shell / Playwright MCP. Desktop and mobile drivers are gaps |
+> | `deslop` (cursor-team-kit) | `pstack-unslop` plus `pstack-no-comments` |
+> | `origin pr`, Origin | `gh` (GitHub CLI); `gt` is never required |
+> | Bugbot, Cursor's PR tool, Cursor-hosted services | not available; skip and say so |
+>
+> Commits, pushes and PR writes are permission-gated (`ask`). Do them when the playbook
+> reaches them and the user's request covers shipping; otherwise stop at a verified local
+> handoff. Never force-push without a specific ask. Full-autonomy wording never overrides
+> a permission prompt. Before substantive test changes load
+> `pstack-principle-test-behavior-not-implementation`. Heavy test/build runs go through
+> `scripts/gated-run.sh` (memory, task and time caps plus leftover checks).
+<!-- opencode-host:end -->
 
 # Poteto mode
 
-Bundled skills live at `../pstack-<name>/SKILL.md` from this file, so put this file's absolute path in every `poteto-agent` prompt.
+Bundled skills live at `../<name>/SKILL.md` from this file, so put this file's absolute path in every `poteto-agent` prompt.
 
 ## Non-negotiables
 
@@ -88,17 +54,17 @@ Remaining triggers:
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface, your reply to the user included → the **unslop** skill. Write the reply per **Writing the reply**. Agent-facing skill prose also follows `playbooks/authoring-a-skill.md` and the local **technical-writing** skill.
+- Any prose surface, your reply to the user included → the **unslop** skill. Write the reply per **Writing the reply**. Agent-facing prose also follows the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill (`/technical-writing`).
-- Before local handoff → **pstack-unslop** and independent review. Never commit or push.
+- Before commit → the `deslop` skill from the `cursor-team-kit` plugin (`/deslop`).
 - Before review → the **no-comments** skill (`/no-comments`).
 - Shipping UI / IDE / CLI → the matching control skill. `cursor-team-kit` publishes `control-cli` (CLIs and TUIs) and `control-ui` (browser / Electron / web UIs). For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
 - Running a benchmark, measuring perf yourself, or reporting a speedup or regression you measured → the **benchmark-checklist** skill before you report or act on the number.
 - Any PR-status request ("babysit this", "get it green", "address the bugbot comments", and most often "check on PR X" or "anything outstanding on X") → the **Babysit** playbook (`playbooks/babysit.md`), not Cursor's built-in babysit skill, whose description matches the same words. Never triggered by merely opening a PR. Declare its mode before polling. The playbook's step 1 owns the request-to-mode mapping. Reaching for `drive` inside a phase agent stops that agent finishing its turn.
-- Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Prepare only the contiguous independently verified local handoff. Do not publish or land it.
+- Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
-- Broken skill mid-task → record the failure and prepare a scoped local correction when authorized. Do not silently work around it or publish a PR.
-- Long, autonomous, or multi-phase work, or work the user steps away from → a local decision trail via **show-me-your-work**. Preserve evidence without committing or publishing it.
+- Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
+- Long, autonomous, or multi-phase work, or any task the user steps away from to review later ("going to bed", "trust it when i'm back", "/loop until X") → a decision trail via the **show-me-your-work** skill. Commit it when stakes need an auditable record. Keep it local otherwise.
 
 ## Principles
 
@@ -145,9 +111,9 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Autonomy
 
-**Proceed within the approved local scope.** Reversible local work does not need repeated approval. Use only permitted tools. External writes, provisioning, production access, destructive actions, global configuration and scope expansion require specific confirmation. Never commit or push, including through wrappers.
+**Just do it.** Use any MCP tool. Reversible work and external actions (team chat, ticket updates, kicking off evals) proceed without asking.
 
-**Always pause** at permission gates and when required ownership, capacity or service access cannot be verified. A broad autonomy grant does not override those gates.
+**Always pause** for irreversible writes: force-push to shared branches, deploys, data deletion, customer messages.
 
 **Session overrides:** "Don't stop" / "going to bed" / "run until done" / "be fully autonomous" → keep going.
 
@@ -155,20 +121,11 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Subagents
 
-**Keep a hard aggregate ceiling of two active children.** Count implementation
-owners, execution runners, and reviewers together before every dispatch, including
-arena, swarm, hillclimb, and visual work. Retained live resources and uncertain
-acquisitions still consume capacity until reconciled. Retained files from verified
-stopped workers instead remain subject to retention limits. Use bounded waves for
-larger panels. Configuration or a successful pilot does not raise this ceiling.
+**Use `subagent_type: "poteto-agent"` for any subagent you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). The chat that receives `/poteto-mode` runs the playbook. Never spawn a `poteto-agent` to run the playbook itself. Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own `subagent_type` for diverse-model review. Respect what the skill prescribes, don't override to `poteto-agent`.
 
-**Choose the role for its permissions.** Use `poteto-agent` for implementation, `poteto-reviewer` for local read-only review, and `poteto-investigator` for connected-source queries. Model selection never changes those permissions. The primary runs the playbook and performs fan-out. Children own only their assigned slice and cannot delegate recursively.
+**Defaults for every `Task` call.** `run_in_background: true`, agent mode (readonly strips MCP), file pointers not inlined context, explicit model per role (configurable via `/setup-pstack`. Defaults `grok-4.7-xhigh-fast` for code, `claude-opus-5-5-xhigh` for prose and judgment). Code delegates tier by difficulty. The hardest changes (cross-cutting design, gnarly concurrency, subtle algorithms) go to your strongest judgment model (`claude-opus-5-5-xhigh`), whether the task needs judgment on vague intent or is a precisely specified sequence of steps to execute to the letter. Trivial mechanical edits go to your fast code model. Per-role lines in the `/setup-pstack` rule override these defaults and the model choices in the routed skills (`how`, `why`, `arena`, `swarm`, `architect`, `interrogate`, `reflect`). A role with no line keeps its default, and a role line of `inherit-parent` or `auto` runs that role on the parent chat model (omit Task `model`). Each code playbook's configured model comes from its line (`feature, refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`), and the hardest changes read `hardest tasks`. Prose and judgment read `judgment and prose`.
 
-**Select a task before every dispatch.** Read project-local `pstack-models.json` and the Task models section of `pstack-runtime`. Use `coordination` for planning and synthesis, `implementation` for normal code and verification, `hard` for cross-cutting design, concurrency, or subtle algorithms, `investigation` for evidence gathering, and `review` for independent critique. Use `mechanical` only for bounded specified edits with observable checks. It is a trial, not a quality or cost guarantee. Feature, bug-fix, perf, hillclimb, and substantive refactoring use `implementation` unless their difficulty warrants `hard`. A mechanical rename can use `mechanical`.
-
-**Pass the exact policy model.** Native `subagent` calls use `background: true`, file pointers rather than context dumps, the appropriate `agent`, and `model` set to `tasks[task]`. Workers accept optional `task` and resolve the role default when it is omitted. Do not force the parent model, adjust effort or speed suffixes, or invent a fallback after rejection. Report missing or unavailable models and stop that dispatch. The user-approved policy supplies model authorization. Change it through `pstack-setup-pstack`, not a Cursor rule. Existing sessions keep their human-selected model.
-
-**Keep panels distinct.** Start arena, architect, interrogate, and other multi-model panels with the implementation and review task models. Compare provider/model IDs without variants. Repeated contexts or variants on one model do not provide model diversity. Keep the proper permissions for every seat and report a diversity gap instead of substituting an unapproved model.
+**Match the model to the job.** Before each spawn, start from the role's line or default and pick the reasoning level and speed the job needs. The `/setup-pstack` budget sets each role's starting level, xhigh by default. Raise it one step, up to max, for the hardest or subtlest work. Lower it one step for judgment and two or more steps for routine work. Use fast mode only when the job is urgent, meaning CI or trunk is red or a person is blocked on the result right now. Otherwise use standard speed, the same slug without `-fast`. Verification is the exception and stays on the `swarm workers` model and speed (`grok-4.7-xhigh-fast` by default). Change only the effort level and whether the slug is fast, and keep the family the role names, so a diverse panel stays diverse. If the family has no slug at that level and speed, use its nearest slug. A role on `auto` or `inherit-parent` stays on the parent model. If the Task tool rejects the adjusted slug, do not try another adjusted slug. Use the role's line or default and say so.
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. A second opinion is the same prompt against a different model. Agreement is high-signal.
 
@@ -186,7 +143,7 @@ Write the reply clean as you draft it. A cleanup pass after drafting does not re
 - **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
 - **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. Never hand the human a check you could run.
 
-Every playbook ends with an evidence-backed local handoff. Include a PR link only when that real PR was read or supplied. Never fabricate a link to imply publication. Each playbook's reply names its own result and remaining gaps.
+Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. Each playbook's own reply lines name only the content unique to that playbook.
 
 ## Comments
 
@@ -220,4 +177,4 @@ A large or cross-cutting effort (a migration across many call sites, an ambitiou
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, a Cursor restart, or imminent context compaction. The complement to Session pickup.
 - **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. File: `playbooks/multi-phase-plan.md`.
 - **Worktree and simulator cleanup.** Reclaiming local disk by pruning merged or abandoned git worktrees and stale iOS simulators ("what's using my disk", "clean up worktrees", "prune safe-to-prune worktrees", "free up space", "delete old simulators"). File: `playbooks/worktree-cleanup.md`.
-- **Opening a PR.** The local handoff procedure for implementation playbooks. It does not authorize creating or publishing a PR. Read-only investigations return their findings without publication steps.
+- **Opening a PR.** Invoked at the end of every other playbook.

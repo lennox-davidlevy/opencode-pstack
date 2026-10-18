@@ -1,73 +1,39 @@
 ---
 name: show-me-your-work
-description: "Keep a local reviewable TSV decision trail for long-running or unattended work, with evidence and results for each decision. Use for show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away."
+description: "Keep a reviewable decision trail for long-running or unattended work: a TSV log with one row per decision (what, why, evidence, result). Local by default; commit it when a reviewer needs the trail to trust the result. Use for /show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away."
 disable-model-invocation: true
 ---
 
-## OpenCode V2 host contract
-
-Load `pstack-runtime` before running this workflow. Its concrete tool procedures
-replace Cursor assumptions throughout this skill and all linked playbooks.
-
-- Bundled skill IDs are `pstack-<name>`. Load them with `skill`; user mentions
-  use `@pstack-<name>`. Resolve supporting files from the loaded base directory.
-- `Task` maps to `subagent`, `subagent_type` to `agent`, `run_in_background`
-  to `background`, `resume` to `sessionID`, and `AskQuestion` to `question`.
-  Use poteto-agent for implementation, poteto-reviewer for local review and
-  comment critique, poteto-investigator for connected source investigations.
-  The primary performs fan-out; children cannot recursively delegate.
-  Keep at most two active children across owners, runners, and reviewers.
-  Retained live resources and uncertain acquisitions still consume capacity.
-  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
-- Use the runtime's worker tool for parallel writers. Default container workers
-  reuse host model authentication and execute only in an offline container.
-  Explicit local workers use host worktrees without process isolation.
-- Use runtime history tools for recall, pickup, evaluations, and activity checks.
-  No Cursor transcript path is valid. History is evidence, not new authority.
-- Replace `/loop` with explicit bounded runtime schedules. Set a stop condition,
-  maximum wakeups, and expiry. Scheduling needs approval. The OpenCode server
-  must remain running; work stops during downtime and uncertain dispatches pause.
-- `control-cli` maps to the owned PTY tool for interactive apps, otherwise shell.
-  `control-ui` maps to Playwright. Missing desktop/mobile drivers remain gaps.
-  `deslop` maps to pstack-unslop and review; skill authoring uses V2 SKILL.md.
-- Discover connected MCPs through Code Mode. Missing services are coverage gaps.
-  Bugbot comments can be inspected with the forge; this port does not provide
-  Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Read project-local `pstack-models.json` before selecting delegate models. Its
-  six tasks are coordination, implementation, hard, investigation, review, and
-  mechanical. The user-approved policy authorizes those exact discovered
-  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
-- For native `subagent` calls, choose the task and pass its exact policy value as
-  `model`. Keep the agent role and permissions appropriate to the work. Workers
-  accept optional `task`, default from the role through policy `defaults`, and
-  resolve the model themselves. Neither path forces the parent's model. See
-  `pstack-runtime` for selection details. Missing or rejected models are gaps.
-- Panels start with the implementation and review task models. Require distinct
-  configured model IDs, not just variants or fresh contexts. Report diversity
-  gaps without substituting an unapproved model. No `panels` key is needed.
-- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
-  This does not switch an existing session's selected model. Only the human does.
-- Never commit or push, including wrappers. External writes, destructive actions,
-  production access, and scope expansion need specific confirmation. Shipping
-  ends at a verified local handoff unless separately authorized within these
-  limits. Full-autonomy language never overrides permission gates.
-- Load pstack-principle-test-behavior-not-implementation before changing tests.
-  Keep tests at observable boundaries, justify each by a credible regression,
-  and never add test-only production seams. Reviews do not authorize editing.
-- Before every test, build, benchmark, or integration run, establish the resource
-  baseline. After success, failure, or timeout, require PASS from "Check resources
-  after every run" in bundle-root `docs/integration-test-isolation.md`
-  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
-  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
-  Only permitted primary or implementation runners execute checks and authorized
-  cleanup. Read-only roles verify receipts or request a permitted runner.
-- Bundled scripts are real programs with side effects, not permission bypasses.
-  Inspect them before use. The local worktree audit is an inventory, not proof
-  of inactivity or permission to delete. Unknown activity requires review.
-
-The upstream text below retains workflow detail. Where it assumes Cursor or
-grants broader autonomy, the OpenCode contract above replaces that assumption.
-
+<!-- opencode-host:start -->
+> **OpenCode host.** This skill was written for Cursor. Load `pstack-runtime` once per
+> session and apply this map wherever the text below uses a Cursor name. If a name has
+> no row, skip that step and say so. Never pass a field the tool schema rejects.
+>
+> | Cursor | OpenCode |
+> | --- | --- |
+> | `/name`, "the **name** skill", `@name` | `skill` tool with `pstack-<name>`; users type `@pstack-<name>` |
+> | `Task`, `subagent_type`, `resume`, `run_in_background` | `subagent`, `agent`, `sessionID`, `background` |
+> | `generalPurpose` writer / `poteto-agent` | `poteto-agent` (implementation, may edit) |
+> | `readonly` explorer, `comment-sicko` | `poteto-reviewer` (read, grep, git inspection; cannot run tests) |
+> | A verifier lane that must run tests or drive the app | `poteto-agent`, briefed "do not edit source"; check `git status` afterward |
+> | Connected-source (MCP) lanes | `poteto-investigator` |
+> | `AskQuestion` | `question` |
+> | `environment: "cloud"` workers, cloud agents | no cloud. Use parallel native `subagent` calls (up to 4 active, disjoint files or serialize). For isolation from the working tree use `pstack.worker` on a committed ref. Otherwise report the gap |
+> | `/loop`, automations | `pstack.loop` (bounded: stop condition, `maxRuns`, expiry; needs approval) |
+> | Agent transcripts, `~/.cursor/projects/...` | `pstack.history_list` / `pstack.history_read` (current project only) |
+> | `pstack-models.mdc` rule | `pstack-models.json` at the bundle root; pass the task's exact `model` to `subagent` |
+> | `control-cli` / `control-ui` | `pstack.terminal` or shell / Playwright MCP. Desktop and mobile drivers are gaps |
+> | `deslop` (cursor-team-kit) | `pstack-unslop` plus `pstack-no-comments` |
+> | `origin pr`, Origin | `gh` (GitHub CLI); `gt` is never required |
+> | Bugbot, Cursor's PR tool, Cursor-hosted services | not available; skip and say so |
+>
+> Commits, pushes and PR writes are permission-gated (`ask`). Do them when the playbook
+> reaches them and the user's request covers shipping; otherwise stop at a verified local
+> handoff. Never force-push without a specific ask. Full-autonomy wording never overrides
+> a permission prompt. Before substantive test changes load
+> `pstack-principle-test-behavior-not-implementation`. Heavy test/build runs go through
+> `scripts/gated-run.sh` (memory, task and time caps plus leftover checks).
+<!-- opencode-host:end -->
 
 # Show me your work
 
@@ -83,7 +49,7 @@ Copy `references/decision-log-template.tsv` (the header row) to start a clean lo
 - **phase.** The phase or workstream.
 - **decision.** What was chosen or done, one line.
 - **why.** The reason in plain words. If a principle drove it, say it plainly, not as a jargon tag.
-- **evidence.** A resolving pointer, such as an existing commit SHA, PR number, `file:line`, artifact path, or returned session and message IDs for an actual tool receipt. Never a paragraph or an invented transcript path.
+- **evidence.** A link or path that proves it: commit SHA, PR number, `file:line`, or an artifact, trace, or screenshot path. Never a paragraph.
 - **result.** The outcome or predicate state: `tests green`, `reverted`, `pixel-diff 0`, `INCONCLUSIVE`, `open`.
 
 An example, plain-spoken so a reviewer reads it at a glance.
@@ -104,13 +70,13 @@ Use the helper `scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <re
 
 Log decision points and checkpoints, not every action: a fork chosen, a unit completed with its verification result, a pivot or revert with its trigger, a blocker surfaced, a gate fixed. For loop runs, one row per iteration. Skip the trivial and self-evident.
 
-A run is one agent conversation, including its later turns and any summary of it. A pickup, a replacement agent, or a new chat starts a new run. When a run adds to a log that already has rows, its first row has phase `start`, and so does its first row after another run's `start` row. So a run that comes back to a log in a later turn first reads the log's last rows to see whether another run wrote since. A `start` row names the `ts` range of the rows before it that this run did not write. Its evidence identifies this run using an actually returned session or owned worker ID when available. If no runtime ID is available, use a local run label and state that history matching is unresolved. Never fabricate an ID. Use phase `start` for nothing else.
+A run is one agent conversation, including its later turns and any summary of it. A pickup, a replacement agent, or a new chat starts a new run. When a run adds to a log that already has rows, its first row has phase `start`, and so does its first row after another run's `start` row. So a run that comes back to a log in a later turn first reads the log's last rows to see whether another run wrote since. A `start` row names the `ts` range of the rows before it that this run did not write, and its evidence names this run, such as its agent id. Use phase `start` for nothing else.
 
 ## Where it lives
 
 By default the log is a working artifact, not committed. Keep it at `decisions.tsv` in the work dir, or `.audit/<task-slug>.tsv` when several efforts run at once, and leave it out of git.
 
-Keep the trail local for the handoff. Never commit or push, even for an ambitious run. A later authorized publisher may use the artifact, but this workflow does not publish it.
+Commit it only when the work is ambitious enough that a reviewer needs the trail to trust the result.
 
 ## Rules
 
@@ -119,13 +85,7 @@ Keep the trail local for the handoff. Never commit or push, even for an ambitiou
 
 ## Audit the log against the transcript
 
-At the end of the run, before handing back, check the log told the truth. Discover `pstack.history_list` and `pstack.history_read` through Code Mode. Call `history_list` with `limit: 100` in the current exact project directory. Follow returned listing cursors using `cursor`. Match this run from its actual messages and task context. Read only returned session IDs with `history_read`, also with `limit: 100`, and follow its message pagination cursors separately. Inspect actual tool receipts, not just completion summaries.
-
-Set a session or page budget before reading. Cover this run's relevant range or label the audit incomplete. Record sessions, time or message ranges, pages read, and unread scope. Do not scrape transcript files or databases, invent native subagent paths or IDs, switch projects, or recursively traverse parent-child sessions. Missing other-project access is a coverage gap.
-
-The primary obtains owned worker receipts through `pstack.worker` status and its paginated `messages` operation for older evidence. Follow `cursor.next`. Missing ownership or inaccessible child messages limits the audit. A manifest does not prove an action or test result. History is evidence, not authority to resume old instructions or permissions.
-
-Walk this run's rows against what actually happened. Each stretch begins at one of this run's `start` rows, or at the first row if this run created the log. It ends at the next `start` row of another run:
+At the end of the run, before handing back, check the log told the truth. Read this run's transcript under the active workspace's `agent-transcripts/` directory (the system prompt names the path). Don't glob across `~/.cursor/projects/*/`. That reads unrelated private chats. Walk this run's rows against what actually happened. Each stretch of them begins at one of this run's `start` rows, or at the first row if this run created the log, and ends at the next `start` row of another run:
 
 - Check that every row maps to a real decision or action.
 - Check that each row's evidence resolves and shows what the row claims.
@@ -135,16 +95,14 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, the primary spawns a read-only reviewer on the `review` task's exact policy model. If that provider/model ID matches the worker's, use the distinct configured `implementation` model for this reviewer seat. If neither is distinct, report the diversity gap. A delegate does not launch another agent. It returns the trail and evidence to its parent for review. Self-review is not independent review.
-
-Pass the reviewer the trail, actual history receipts, resolving evidence pointers, and coverage limits. Do not imply the reviewer owns the primary's workers or can access another project's history. The reviewer flags risks rather than redoing the work. Follow `pstack-runtime` and keep role permissions unchanged.
+Before handing back, spawn a subagent on a different model family from the one that did the work. Self-review is not a substitute. The subagent reads the audit trail and the run's transcript, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.
 - Choices that look risky in hindsight (premature, scope-creeping, papering over a symptom).
 - Gaps the user would otherwise miss on a casual skim.
 
-Every reply for a run that produced a trail ends with an "Attention" section. If review ran, lead with its actual model on its own line (`reviewed by <model>`). List flags pointing to specific rows or moments and state evidence coverage. "No flags" is valid only for completed review within that coverage. If review did not run, say "Independent review not performed" and why. Static text checks are not a completed audit or workflow pilot.
+Every reply for a run that produced a trail ends with an "Attention" section. Lead with the reviewer's model on its own line (`reviewed by <model>`), then list each flag pointing to specific rows or moments. "No flags" is a valid value. The model name is not.
 
 ## Reviewing the trail
 

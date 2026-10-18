@@ -8,8 +8,7 @@ description: Native tool procedures for pstack session history, bounded schedule
 Discover the `pstack` namespace through Code Mode. If its tools are missing,
 stop dependent workflows and report a plugin installation error. Do not fake
 these capabilities with Cursor paths, imaginary cloud agents, or promises to
-wake up later. This contract replaces the older compatibility prefaces.
-
+wake up later. 
 ## Task models
 
 Read `pstack-models.json` in the project-local bundle root, alongside `agents/`
@@ -86,61 +85,34 @@ For PR babysitting, run the upstream watcher in bounded status/check mode on
 each wake. Preserve forge authentication requirements. Never interpret a
 scheduled wake as authority to push, merge, send messages, or modify services.
 
-## Isolated workers
+## Parallel work and isolated workers
 
-Only the primary poteto agent uses `pstack.worker`. `start` needs an explicit
-committed Git `ref`, bounded `prompt`, and optional poteto child `role`.
-The default container backend creates a standalone clone and an offline execution
-container. Its OpenCode session and model connection stay on the existing host
-server, reusing the user's sign-in without copying credentials. The worker has
-only container_command for file operations and checks; no native host tools or
-MCP. Parent restrictions are retained. Read-only roles mount the clone read-only.
-The execution image must be built first (see container/README.md). It excludes
-uncommitted parent changes. State that fact before using it. Explicit backend
-local instead starts a host session in a detached worktree, without sandboxing.
-For uncommitted changes, serialize work or give native subagents disjoint files.
+Default to native `subagent` calls: they see the live working tree, including
+uncommitted files, and run up to four at once. Give concurrent writers disjoint
+files or serialize them. A verifier that must run tests or drive the app is a
+`poteto-agent` briefed not to edit source; confirm with `git status` afterward.
+`poteto-reviewer` is read-only and cannot run commands.
 
-Save the returned worker ID. `list` returns only this session's owned workers in
-this working directory. Pass `limit` (1–100) and follow the returned `next` as
-`cursor`; an owner-filtered page can be empty while more records remain.
-`messages` takes a worker `id`, optional `limit` and `cursor`, and returns actual
-message pages with `cursor.next`, including after the container has stopped.
-Use it for receipts older than the recent messages in `status`. Listing cursors
-and message cursors are different and must not be interchanged.
-`status` returns session state and recent messages; `stop` interrupts that worker.
-Inspect its diff and verify results yourself. These operations do not transfer
-ownership to a new coordinator session; ownership transfer is not implemented.
+`pstack.worker` (primary only, asks for approval) is the experimental route for
+isolation from the working tree. `start` needs an explicit committed Git `ref`, a
+bounded `prompt`, and an optional `role`. The default container backend makes a
+standalone clone and an offline execution container; the model session and
+sign-in stay on the host, and the child gets only `container_command`. It excludes
+uncommitted changes, so say so before using it. Build the image first
+(`container/README.md`). `backend: local` uses a detached host worktree with no
+sandbox. At most two workers are charged at once. Linux only. Do not use workers
+unattended.
 
-`worker_review` provides manifest-only cross-session review in this project.
-Supply the worker `id`, `expectedOwner`, and current `artifactDigest` from an
-authorized owner handoff. Each call requires fresh approval for that exact
-operation. Approval authorizes bounded completion; later permission changes may
-not cancel it. The worker must remain stopped and its identity and digest must
-match. This does not expose messages or file contents, transfer ownership, or
-grant execution rights. Missing owner/digest evidence is not permission to probe
-other workers. The route has passed independent code review and a successful
-native read. Native denial and repeated-approval scenarios are not yet verified;
-synthetic installed-runtime permission tests cover those permission mechanics.
-
-For a stopped container worker, `manifest` with its `id` returns metadata-only
-working-tree observations and an `artifactDigest`. Review paths, file types,
-modes and SHA-256 digests alongside actual message receipts. Capture again before
-handoff; a changed digest invalidates acceptance of the earlier output. The
-manifest is not proof that tests passed and does not export or apply file contents.
-It includes nonignored untracked output and tracked changes/deletions, describes
-staged/index-only differences, and reports ignored exclusions. Symlink target
-bytes are hashed rather than followed or returned. Unsupported paths, submodules,
-special files, Git configuration and size limits fail closed. Local workers are
-not supported. Capture never stops a running worker automatically. Two matching
-passes detect observed drift, not all possible concurrent host mutation.
-The worktree is retained for review. Cleanup needs explicit confirmation and
-must check both Git state and worker activity; no automatic force-removal.
-No commits or pushes are made by the runtime. It does not merge worker output.
-Local worktrees share host resources and credentials. Container execution does
-not receive provider credentials, host home, or Docker socket, and has no network.
-Containers are not VM sandboxes. Stop owned containers when work is finished;
-they remain running after the model session completes until explicitly stopped.
-For mandatory cloud isolation, request an actual provisioned backend.
+Save the worker `id`. `list` (owner-scoped, `limit` 1-100, follow `next` as
+`cursor`), `status`, `messages` (paged receipts, even after the container
+stops) and `stop` (explicit; containers outlive the model turn) are the
+lifecycle operations. For a stopped container worker, `manifest` returns a
+metadata-only digest of its output (paths, modes, SHA-256) and `worker_review`
+lets another primary session in this project read that manifest after fresh
+approval, given the worker `id`, `expectedOwner` and current `artifactDigest`.
+Neither exports file contents, merges output, transfers ownership, or proves
+tests passed. Inspect the retained checkout yourself, and clean up only after
+confirming Git state and worker activity. See `docs/worker-recovery.md`.
 
 ## Interactive terminals
 
@@ -148,7 +120,7 @@ Use `pstack.terminal` with `action: start`, executable `command`, and `args`.
 Save the returned `id`. `send` writes exact input bytes, `read` drains output,
 `resize` takes rows/cols, and `close` terminates the owned process group.
 Start and input require explicit permission; terminal input may mutate state.
-Never use a terminal to bypass no-commit/no-push or destructive-action gates.
+Never use a terminal to bypass permission prompts.
 Output is raw ANSI text, not a rendered screenshot. State truncation and read
 again if needed. Close on completion; plugin unload closes all owned PTYs.
 Python 3 and a Unix PTY are required. No desktop or simulator driver is implied.

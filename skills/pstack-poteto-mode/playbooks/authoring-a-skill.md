@@ -2,7 +2,7 @@
 
 **You own the skill's voice.**
 
-1. Use OpenCode V2 SKILL.md frontmatter and the local **technical-writing** and **unslop** skills. Read relevant leaf principles. Change generated host contracts through `prompts/pstack-compatibility.md`, then run the inspected `python3 scripts/sync_contract.py` from the bundle root.
+1. Use the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
 2. Validate the skill: frontmatter has `name` and `description`, referenced files exist, cross-skill links resolve.
 3. Test cases if structural. Skip if subjective.
 4. Run **Opening a PR**.

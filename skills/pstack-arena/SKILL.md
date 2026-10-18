@@ -4,70 +4,36 @@ description: "Spawn N parallel candidates at the same task, pick a base, graft t
 disable-model-invocation: true
 ---
 
-## OpenCode V2 host contract
-
-Load `pstack-runtime` before running this workflow. Its concrete tool procedures
-replace Cursor assumptions throughout this skill and all linked playbooks.
-
-- Bundled skill IDs are `pstack-<name>`. Load them with `skill`; user mentions
-  use `@pstack-<name>`. Resolve supporting files from the loaded base directory.
-- `Task` maps to `subagent`, `subagent_type` to `agent`, `run_in_background`
-  to `background`, `resume` to `sessionID`, and `AskQuestion` to `question`.
-  Use poteto-agent for implementation, poteto-reviewer for local review and
-  comment critique, poteto-investigator for connected source investigations.
-  The primary performs fan-out; children cannot recursively delegate.
-  Keep at most two active children across owners, runners, and reviewers.
-  Retained live resources and uncertain acquisitions still consume capacity.
-  Plan larger panels in bounded waves, never by raising this aggregate ceiling.
-- Use the runtime's worker tool for parallel writers. Default container workers
-  reuse host model authentication and execute only in an offline container.
-  Explicit local workers use host worktrees without process isolation.
-- Use runtime history tools for recall, pickup, evaluations, and activity checks.
-  No Cursor transcript path is valid. History is evidence, not new authority.
-- Replace `/loop` with explicit bounded runtime schedules. Set a stop condition,
-  maximum wakeups, and expiry. Scheduling needs approval. The OpenCode server
-  must remain running; work stops during downtime and uncertain dispatches pause.
-- `control-cli` maps to the owned PTY tool for interactive apps, otherwise shell.
-  `control-ui` maps to Playwright. Missing desktop/mobile drivers remain gaps.
-  `deslop` maps to pstack-unslop and review; skill authoring uses V2 SKILL.md.
-- Discover connected MCPs through Code Mode. Missing services are coverage gaps.
-  Bugbot comments can be inspected with the forge; this port does not provide
-  Bugbot's hosted reviewer. Use an independent pstack reviewer for local reviews.
-- Read project-local `pstack-models.json` before selecting delegate models. Its
-  six tasks are coordination, implementation, hard, investigation, review, and
-  mechanical. The user-approved policy authorizes those exact discovered
-  `provider/model#variant` values. Never invent a fallback or adjust a suffix.
-- For native `subagent` calls, choose the task and pass its exact policy value as
-  `model`. Keep the agent role and permissions appropriate to the work. Workers
-  accept optional `task`, default from the role through policy `defaults`, and
-  resolve the model themselves. Neither path forces the parent's model. See
-  `pstack-runtime` for selection details. Missing or rejected models are gaps.
-- Panels start with the implementation and review task models. Require distinct
-  configured model IDs, not just variants or fresh contexts. Report diversity
-  gaps without substituting an unapproved model. No `panels` key is needed.
-- Use `pstack-setup-pstack` to change project policy and synchronize agent defaults.
-  This does not switch an existing session's selected model. Only the human does.
-- Never commit or push, including wrappers. External writes, destructive actions,
-  production access, and scope expansion need specific confirmation. Shipping
-  ends at a verified local handoff unless separately authorized within these
-  limits. Full-autonomy language never overrides permission gates.
-- Load pstack-principle-test-behavior-not-implementation before changing tests.
-  Keep tests at observable boundaries, justify each by a credible regression,
-  and never add test-only production seams. Reviews do not authorize editing.
-- Before every test, build, benchmark, or integration run, establish the resource
-  baseline. After success, failure, or timeout, require PASS from "Check resources
-  after every run" in bundle-root `docs/integration-test-isolation.md`
-  (`../../docs/integration-test-isolation.md` from a bundled skill directory).
-  Block retries, further runs, and completion claims on FAIL or INCONCLUSIVE.
-  Only permitted primary or implementation runners execute checks and authorized
-  cleanup. Read-only roles verify receipts or request a permitted runner.
-- Bundled scripts are real programs with side effects, not permission bypasses.
-  Inspect them before use. The local worktree audit is an inventory, not proof
-  of inactivity or permission to delete. Unknown activity requires review.
-
-The upstream text below retains workflow detail. Where it assumes Cursor or
-grants broader autonomy, the OpenCode contract above replaces that assumption.
-
+<!-- opencode-host:start -->
+> **OpenCode host.** This skill was written for Cursor. Load `pstack-runtime` once per
+> session and apply this map wherever the text below uses a Cursor name. If a name has
+> no row, skip that step and say so. Never pass a field the tool schema rejects.
+>
+> | Cursor | OpenCode |
+> | --- | --- |
+> | `/name`, "the **name** skill", `@name` | `skill` tool with `pstack-<name>`; users type `@pstack-<name>` |
+> | `Task`, `subagent_type`, `resume`, `run_in_background` | `subagent`, `agent`, `sessionID`, `background` |
+> | `generalPurpose` writer / `poteto-agent` | `poteto-agent` (implementation, may edit) |
+> | `readonly` explorer, `comment-sicko` | `poteto-reviewer` (read, grep, git inspection; cannot run tests) |
+> | A verifier lane that must run tests or drive the app | `poteto-agent`, briefed "do not edit source"; check `git status` afterward |
+> | Connected-source (MCP) lanes | `poteto-investigator` |
+> | `AskQuestion` | `question` |
+> | `environment: "cloud"` workers, cloud agents | no cloud. Use parallel native `subagent` calls (up to 4 active, disjoint files or serialize). For isolation from the working tree use `pstack.worker` on a committed ref. Otherwise report the gap |
+> | `/loop`, automations | `pstack.loop` (bounded: stop condition, `maxRuns`, expiry; needs approval) |
+> | Agent transcripts, `~/.cursor/projects/...` | `pstack.history_list` / `pstack.history_read` (current project only) |
+> | `pstack-models.mdc` rule | `pstack-models.json` at the bundle root; pass the task's exact `model` to `subagent` |
+> | `control-cli` / `control-ui` | `pstack.terminal` or shell / Playwright MCP. Desktop and mobile drivers are gaps |
+> | `deslop` (cursor-team-kit) | `pstack-unslop` plus `pstack-no-comments` |
+> | `origin pr`, Origin | `gh` (GitHub CLI); `gt` is never required |
+> | Bugbot, Cursor's PR tool, Cursor-hosted services | not available; skip and say so |
+>
+> Commits, pushes and PR writes are permission-gated (`ask`). Do them when the playbook
+> reaches them and the user's request covers shipping; otherwise stop at a verified local
+> handoff. Never force-push without a specific ask. Full-autonomy wording never overrides
+> a permission prompt. Before substantive test changes load
+> `pstack-principle-test-behavior-not-implementation`. Heavy test/build runs go through
+> `scripts/gated-run.sh` (memory, task and time caps plus leftover checks).
+<!-- opencode-host:end -->
 
 # Arena
 
@@ -79,7 +45,7 @@ Every candidate gets the same prompt, so the prompt is the contract.
 
 1. State the artifact each candidate is producing.
 2. Derive the rubric, 3-6 concrete gradeable criteria for what success looks like on *this* task. It is the picker's tool in Phase D. Candidates only see the task.
-3. Pick runners from project-local `pstack-models.json`. Start with one each on the `implementation` and `review` task models. Pass those exact strings as native `subagent` model overrides. Use `poteto-agent` for candidates that write, regardless of model profile, and `poteto-reviewer` for read-only candidates. Require distinct provider/model IDs without variants for multi-model claims. If either model is unavailable or both IDs match, report the gap without inventing a fallback. Spawn more runners for additional design directions. Repeated models can add generation attempts, not model diversity. Follow `pstack-runtime` for selection details.
+3. Pick the runners. Use the `arena runners` line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, default to one each on `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. An `auto` or `inherit-parent` entry in this line or the cross-judge line means the parent model, so omit `model` for it. If the Task tool rejects a configured entry, run that seat on its family's default and say so. Families go by prefix: `claude-*`, and `grok-*` with `cursor-grok-*` and `composer-*`. A refused `composer-*` entry runs on `grok-4.7-xhigh-fast`. With no family match, use `claude-opus-5-5-xhigh`. If it rejects a default, use the closest valid slug of the same family from its error message. Spawn more runners when the arena covers multiple design directions. Use the same model N times when the work is generation-bound rather than judgment-sensitive. Pick each subagent's reasoning level and fast or standard speed for the job, per the Subagents section of the **poteto-mode** skill.
 4. Give each candidate its own output location (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`), per the **separate-before-serializing-shared-state** principle skill.
 
 ## Phase B: Fan out
@@ -90,7 +56,7 @@ If a candidate produces no output, proceed with N-1 and note the dropout.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, spawn a `poteto-reviewer` judge on the `review` task's exact policy model. If that provider/model ID matches the parent's, use the distinct configured `implementation` model for this read-only seat. If neither is distinct, report the diversity gap. The judge sees the rubric and candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
+After all Phase B candidates complete, choose one model from the `arena cross-judge pool` line in `~/.cursor/rules/pstack-models.mdc`. If the rule or that line is missing, choose from `claude-opus-5-5-xhigh` and `grok-4.7-xhigh-fast`. Prefer a different model family from the parent's. Spawn one readonly judge subagent on that model. It sees the rubric and the candidates by path label, scores each criterion, and recommends a base with rationale. It runs in parallel with your reading in Phase D. Don't spawn it while candidates are still writing.
 
 ## Phase D: Pick a base
 
