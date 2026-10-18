@@ -56,8 +56,7 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 
 ## Known gaps and next work
 
-- Pilot the remaining playbooks: hillclimb, `watch-pr` after `bun install`,
-  PTY-driven app verification.
+- Pilot the remaining skills (arena, reflect, recall, setup-pstack, automate-me).
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
 - `docs/model-policy.md` describes the model task policy.
