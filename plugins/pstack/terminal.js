@@ -9,6 +9,21 @@ export class Terminal {
     this.pending = new Map();
     this.sequence = 0;
     this.stderr = '';
+    this.exited = false;
+    /** @type {Error | undefined} */
+    this.exitError = undefined;
+    /** @type {Promise<{closed:true}> | undefined} */
+    this.closing = undefined;
+    this.finished = new Promise((resolve, reject) => {
+      this.child.once('error', error => { this.exitError = error; });
+      this.child.once('close', (code, signal) => {
+        this.exited = true;
+        this.exitError ??= code === 0 ? undefined : new Error(`PTY bridge closure failed (${code ?? signal}). ${this.stderr}`);
+        if (this.exitError) reject(this.exitError);
+        else resolve(undefined);
+      });
+    });
+    void this.finished.catch(() => {});
     this.child.stderr.on('data', data => { this.stderr = (this.stderr + data).slice(-4000); });
     createInterface({ input: this.child.stdout }).on('line', line => {
       try {
@@ -25,6 +40,7 @@ export class Terminal {
       for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(error); }
       this.pending.clear();
     };
+    this.fail = fail;
     this.child.on('error', fail);
     this.child.on('exit', () => fail(new Error(`PTY bridge exited. ${this.stderr}`)));
     this.child.stdin.on('error', fail);
@@ -32,17 +48,35 @@ export class Terminal {
 
   /** @param {Record<string,unknown>} request @returns {Promise<any>} */
   request(request) {
+    if (this.closing || this.exited) return Promise.reject(new Error('Terminal is closing or closed'));
     const id = ++this.sequence;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         this.close();
-        reject(new Error('Terminal operation timed out; bridge closed'));
+        reject(new Error('Terminal operation timed out; closure requested'));
       }, 10_000);
       this.pending.set(id, { resolve, reject, timer });
       this.child.stdin.write(JSON.stringify({ ...request, id }) + '\n');
     });
   }
 
-  close() { this.child.stdin.end(); }
+  close() {
+    if (this.exited && !this.exitError) return Promise.resolve(/** @type {{closed:true}} */ ({ closed: true }));
+    if (!this.closing) {
+      this.fail(new Error('Terminal closure requested'));
+      this.child.stdin.end();
+      this.closing = (async () => {
+        let timer;
+        try {
+          await Promise.race([this.finished, new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('PTY bridge closure was not confirmed within 5 seconds')), 5000);
+          })]);
+          return /** @type {{closed:true}} */ ({ closed: true });
+        } finally { clearTimeout(timer); }
+      })();
+      void this.closing.catch(() => {});
+    }
+    return this.closing;
+  }
 }

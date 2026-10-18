@@ -1,23 +1,10 @@
 ### Pause safely
 
-**Leave a durable local checkpoint without committing or discarding work.**
+**You own a clean stop. Leave a checkpoint a cold-start agent can resume from.** This is explicit only. On "keep going", "going to bed, keep going", or "don't stop", do not pause.
 
-1. Stop admitting new work at an atomic boundary. Do not revert unfinished edits
-   merely to make the tree clean. Record incomplete operations honestly.
-2. List and cancel this session's owned schedules through `pstack.loop`. An
-   admitted wakeup cannot be retracted by cancelling its future schedule. Record
-   any already-admitted turn. Do not silently leave a recurrence armed.
-3. Record every owned worker ID and session ID. Stop owned active workers through
-   `pstack.worker`; close owned PTYs. Preserve clones, worktrees, files and logs.
-   If a stop fails, report the live resource and failure instead of claiming a
-   clean pause. Never stop another session's resources without specific authority.
-4. Write a local resume note to an agreed project path or a named path under
-   `/tmp/opencode`. Include the goal, constraints, base SHA, modified and untracked
-   paths, worker checkout locations and ownership, schedule state, verification
-   receipts, incomplete steps, and the first safe next action. Save paths to any
-   existing decision trail rather than duplicating it. Do not include credentials.
-5. Read the checkpoint back and check that referenced artifacts exist. Leave all
-   changes uncommitted. No WIP commit, push, PR, cleanup, or automatic deletion.
+1. Stop at a safe boundary. Finish the current atomic step or back out of it. Start nothing new, and cancel any nested subagents.
+2. Take no irreversible action to pause. No PR and no push unless you already had one out.
+3. Make the work durable. Commit uncommitted edits as one clear `wip:` commit on the current branch so nothing is lost. If the tree is broken, say so in the commit body in one line.
+4. Write the resume note off-context. Capture intent, what you were doing, progress and what's verified, current state, next steps, key files, and gotchas. For the compaction trigger write it to a file like `/tmp/<slug>-resume.md`. If a show-me-your-work trail exists, point at it instead of duplicating it.
 
-**Reply:** checkpoint path, preserved files, stopped and still-active resources,
-what remains unverified, and the resume action. This is a pause, not completion.
+**Reply:** where you are in the loop, what's on disk versus still in your head (paths, no diff dumps), the commits you made and whether the tree is clean, and the first action on resume. This is a pause, not a final report.

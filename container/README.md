@@ -7,7 +7,7 @@ the execution container. No additional login is required.
 
 The compatibility target is OpenCode 2.0.32 with `@opencode/plugin` SDK 2.0.31
 deliberately retained as the tested combination. The authenticated container smoke
-recorded in the [port guide](../docs/pstack-port.md) ran on OpenCode 2.0.31.
+recorded in the [parity status](../docs/pstack-port.md) ran on OpenCode 2.0.31.
 Production cross-session review has not yet been verified on OpenCode 2.0.32.
 
 Build the execution image (nothing is pushed):
@@ -27,6 +27,12 @@ Its only model tool is `container_command`, running at `/workspace` inside the
 container. File reads/edits and tests use shell/Python through that tool.
 Native host tools, Code Mode, MCP, delegation, and history tools are unavailable.
 Host global plugins remain trusted server administration, not sandboxed code.
+
+The optional `task` selects a model from the bundle's `pstack-models.json`.
+Without it, the worker uses its role's default task. The runtime checks that
+the model and variant are available before creating a checkout or container.
+This does not change the role's permissions or the parent session's model.
+See [model policy](../docs/model-policy.md) for the task choices.
 
 Containers have no network, no capabilities, a read-only root, temporary /tmp,
 and CPU/memory/PID limits. Only the clone is mounted; reviewer/investigator

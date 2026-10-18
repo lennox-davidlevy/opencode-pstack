@@ -1,4 +1,4 @@
-#!/usr/bin/env -S bun --no-install
+#!/usr/bin/env bun
 
 import { ensureDependenciesInstalled } from "../bootstrap.ts";
 import {
@@ -18,12 +18,7 @@ import {
   type Verdict,
 } from "./store.ts";
 
-try {
-  ensureDependenciesInstalled();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-}
+ensureDependenciesInstalled();
 const {
   Command: CommanderCommand,
   CommanderError,

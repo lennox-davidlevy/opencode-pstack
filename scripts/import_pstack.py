@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Vendor pstack resources with namespaced OpenCode skill IDs."""
+"""Vendor pristine upstream pstack skills with namespaced IDs and the OpenCode mapping block."""
 import argparse
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, help="cursor-plugins/pstack directory")
+    parser.add_argument("--revision", help="upstream commit (default: git rev-parse HEAD in source)")
     args = parser.parse_args()
     source = args.source.resolve()
     root = Path(__file__).resolve().parents[1]
@@ -17,9 +19,10 @@ def main():
     if not names or not (source / "LICENSE").is_file():
         parser.error("source must contain skills/*/SKILL.md and LICENSE")
     targets = [root / "skills" / f"pstack-{name}" for name in names]
-    if any(p.exists() for p in targets):
-        parser.error("pstack skills already exist; refusing to overwrite local adaptations")
-    adapter = (root / "prompts" / "pstack-compatibility.md").read_text()
+    for target in targets:
+        if target.exists():
+            shutil.rmtree(target)
+    adapter = (root / "prompts" / "pstack-compatibility.md").read_text().rstrip()
     hashes = {}
     for name, target in zip(names, targets):
         for path in sorted((source / "skills" / name).rglob("*")):
@@ -47,7 +50,7 @@ def main():
     vendor = root / "vendor" / "pstack"
     vendor.mkdir(parents=True, exist_ok=True)
     (vendor / "LICENSE").write_bytes((source / "LICENSE").read_bytes())
-    revision = subprocess.check_output(
+    revision = args.revision or subprocess.check_output(
         ["git", "-C", str(source), "rev-parse", "HEAD"], text=True
     ).strip()
     (vendor / "provenance.json").write_text(json.dumps({
@@ -56,7 +59,7 @@ def main():
         "version": json.loads((source / "plugin.json").read_text())["version"],
         "sha256": hashes,
     }, indent=2) + "\n")
-    print(f"Imported {len(names)} skills. Apply the OpenCode setup-pstack override before use.")
+    print(f"Imported {len(names)} skills. Re-apply the pstack-setup-pstack and pstack-runtime overrides if they changed.")
 
 
 if __name__ == "__main__":

@@ -39,16 +39,20 @@ function pageLimit(limit) {
 
 /** Durable worker discovery and history, restricted to one directory prefix and owner. */
 export class WorkerHistory {
-  /** @param {WorkerStorage} storage @param {string} prefix */
-  constructor(storage, prefix) {
+  /** @param {WorkerStorage} storage @param {string} prefix
+    * @param {{get:(owner:string,id:string)=>Promise<any>,scan:(owner:string,limit:number,after?:string,ledgerOnly?:boolean)=>Promise<{entries:{key:string,value:any}[],next?:string,ledgerOnly?:boolean,warnings?:string[]}>,cursorKey?:()=>Promise<Buffer>,messages?:(owner:string,id:string,limit:number,cursor?:string,signal?:AbortSignal)=>Promise<any>}} [source] */
+  constructor(storage, prefix, source) {
     this.storage = storage;
     this.prefix = prefix;
+    this.source = source;
   }
+
+  key() { return this.source?.cursorKey ? this.source.cursorKey() : cursorKey(this.storage, this.prefix); }
 
   /** @param {string} owner @param {string} id @returns {Promise<any>} */
   async get(owner, id) {
     if (typeof id !== 'string' || !workerID.test(id)) throw new Error('Invalid worker ID');
-    const worker = /** @type {any} */ (await this.storage.get(this.prefix + id));
+    const worker = this.source ? await this.source.get(owner, id) : /** @type {any} */ (await this.storage.get(this.prefix + id));
     if (!worker || worker.id !== id || worker.owner !== owner) throw new Error('Worker not owned by this session');
     return worker;
   }
@@ -59,22 +63,29 @@ export class WorkerHistory {
   async list(owner, limit = 20, cursor) {
     pageLimit(limit);
     const scope = Buffer.from(JSON.stringify([this.prefix, owner]));
+    /** @type {string|undefined} */
     let after;
+    let ledgerOnly = false;
     if (cursor !== undefined) {
+      const key = await this.key();
       try {
         if (typeof cursor !== 'string' || !cursor.length || cursor.length > 16000) throw new Error();
         const decoded = Buffer.from(cursor, 'base64url');
         if (decoded.length <= 28 || decoded.toString('base64url') !== cursor) throw new Error();
-        const decipher = createDecipheriv('aes-256-gcm', await cursorKey(this.storage, this.prefix), decoded.subarray(0, 12));
+        const decipher = createDecipheriv('aes-256-gcm', key, decoded.subarray(0, 12));
         decipher.setAAD(scope);
         decipher.setAuthTag(decoded.subarray(12, 28));
-        after = Buffer.concat([decipher.update(decoded.subarray(28)), decipher.final()]).toString('utf8');
-        if (!after.startsWith(this.prefix)) throw new Error();
+        const payload = JSON.parse(Buffer.concat([decipher.update(decoded.subarray(28)), decipher.final()]).toString('utf8'));
+        after = payload.after;
+        ledgerOnly = payload.ledgerOnly === true;
+        if (typeof after !== 'string' || !after.startsWith(this.prefix)) throw new Error();
       } catch {
         throw new Error('Invalid worker cursor for this directory and owner');
       }
     }
-    const page = await this.storage.scan({ prefix: this.prefix, limit, after });
+    /** @type {{entries:readonly {key:string,value:any}[],next?:string,ledgerOnly?:boolean,warnings?:string[]}} */
+    const page = this.source ? await this.source.scan(owner, limit, after, ledgerOnly)
+      : await this.storage.scan({ prefix: this.prefix, limit, after });
     const workers = page.entries.flatMap(({ key, value }) => {
       const worker = /** @type {any} */ (value);
       return worker && typeof worker.id === 'string' && workerID.test(worker.id)
@@ -83,18 +94,18 @@ export class WorkerHistory {
     let next;
     if (page.next) {
       const nonce = randomBytes(12);
-      const cipher = createCipheriv('aes-256-gcm', await cursorKey(this.storage, this.prefix), nonce);
+      const cipher = createCipheriv('aes-256-gcm', await this.key(), nonce);
       cipher.setAAD(scope);
-      const encrypted = Buffer.concat([cipher.update(page.next, 'utf8'), cipher.final()]);
+      const encrypted = Buffer.concat([cipher.update(JSON.stringify({ after: page.next, ...(page.ledgerOnly ? { ledgerOnly: true } : {}) }), 'utf8'), cipher.final()]);
       next = Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString('base64url');
     }
-    return { workers, next };
+    return { workers, next, ...(page.warnings ? { warnings: page.warnings } : {}) };
   }
 
   /** @param {string} owner @param {string} id @param {number} [limit] @param {string} [cursor]
    * @param {AbortSignal} [signal] @param {typeof api} [request]
    */
-  async messages(owner, id, limit = 20, cursor, signal, request = api) {
+  async messages(owner, id, limit = 20, cursor, signal, request) {
     pageLimit(limit);
     const worker = await this.get(owner, id);
     if (typeof worker.sessionID !== 'string' || !/^ses_[a-zA-Z0-9]+$/.test(worker.sessionID)) throw new Error('Invalid worker session ID');
@@ -103,6 +114,13 @@ export class WorkerHistory {
       if (typeof cursor !== 'string' || !cursor.length || cursor.length > 16000) throw new Error('Invalid message cursor');
       query.set('cursor', cursor);
     }
-    return request('get', `/api/session/${worker.sessionID}/message?${query}`, undefined, signal);
+    if (this.source) {
+      if (request || !this.source.messages) throw new Error('Bound worker history transport required');
+      return this.source.messages(owner, id, limit, cursor, signal);
+    }
+    if (worker.server) throw new Error('Bound worker history requires its owning lifecycle');
+    // Ambient CLI compatibility is limited to unbound legacy storage records.
+    // The installed message-list endpoint has no session-location middleware.
+    return (request ?? api)('get', `/api/session/${worker.sessionID}/message?${query}`, undefined, signal);
   }
 }

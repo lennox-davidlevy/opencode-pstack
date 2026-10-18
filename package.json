@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js && python3 scripts/test_pstack_plan.py && python3 scripts/test_check_runtime.py",
-    "check": "tsc --noEmit && python3 scripts/sync_contract.py --check"
+    "test": "node --test --test-concurrency=1 tests/*.test.js && python3 scripts/test_pstack_plan.py && python3 scripts/test_check_runtime.py",
+    "check": "tsc --noEmit && node scripts/sync_models.mjs --check && python3 scripts/sync_contract.py --check"
   },
-  "dependencies": { "@opencode/plugin": "2.0.31" },
+  "dependencies": { "@opencode/client": "2.0.31", "@opencode/plugin": "2.0.31", "@opencode/schema": "2.0.31" },
   "devDependencies": { "typescript": "5.9.3", "@types/node": "24.10.1" }
 }

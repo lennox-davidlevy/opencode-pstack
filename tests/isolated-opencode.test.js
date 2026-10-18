@@ -53,7 +53,7 @@ async function assertStopped(root) {
         const stat = await readFile(`/proc/${pid}/stat`, 'utf8');
         if (/^[ZX] /.test(stat.slice(stat.lastIndexOf(')') + 2))) { stopped = true; break; }
       } catch (error) {
-        if (error.code !== 'ENOENT') throw error;
+        if (!['ENOENT', 'ESRCH'].includes(error.code)) throw error;
         stopped = true;
         break;
       }

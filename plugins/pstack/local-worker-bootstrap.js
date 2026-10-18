@@ -7,9 +7,21 @@ const workerRoles = ['poteto', 'poteto-agent', 'poteto-reviewer', 'poteto-invest
  * @param {string} assets @param {string} checkout @param {any[]} restrictions
  */
 export async function bootstrapLocalWorker(assets, checkout, restrictions) {
-  const config = JSON.parse(await readFile(join(assets, 'opencode.json'), 'utf8'));
-  config.skills = [join(assets, 'skills')];
-  config.plugins = [join(assets, 'plugins/pstack')];
+  const bundled = JSON.parse(await readFile(join(assets, 'opencode.json'), 'utf8'));
+  const config = {
+    $schema: bundled.$schema,
+    default_agent: bundled.default_agent,
+    skills: [join(assets, 'skills')],
+    plugins: [],
+    permissions: bundled.permissions,
+    snapshots: false,
+    lsp: false,
+    formatter: false,
+    mcp: { servers: Object.fromEntries(Object.entries(bundled.mcp?.servers ?? {})
+      .map(([id, definition]) => [id, { ...definition, disabled: true }])) },
+    agents: Object.fromEntries(Object.entries(bundled.agents)
+      .filter(([, agent]) => agent.disabled === true)),
+  };
   for (const role of workerRoles) {
     config.agents[role] = { permissions: [
       { action: 'external_directory', resource: join(assets, 'skills') + '/**', effect: 'allow' },

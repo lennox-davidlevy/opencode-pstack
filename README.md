@@ -18,12 +18,17 @@ review, and interactive terminals.
 
 - **OpenCode 2.0.32**. Other versions require validation.
 - **Node.js 24+**, npm, Git, and Python 3.
-- Linux or macOS. Clean-install verification has run on Linux.
+- Linux for the current worker lifecycle. Its server-identity checks require
+  Linux `/proc` and matching local namespaces. Other bundle components may work
+  on macOS, but worker support there is not implemented. Clean-install
+  verification has run on Linux.
 - An OpenCode provider connection with access to the configured model.
 - **Docker CLI**. Container workers also need a running daemon and worker image.
 
-All four agents default to `openai/gpt-6-astra#high`. Change their Markdown
-frontmatter to use another available model. The tested plugin SDK is 2.0.31.
+Project-local `pstack-models.json` defines six task profiles. Coordination and
+implementation use `openai/gpt-6.1-sol#high`. Review uses
+`openai/gpt-6-astra#high`. See the [model policy](docs/model-policy.md) for the
+other profiles and agent defaults. The tested plugin SDK is 2.0.31.
 
 Optional browser workflows need Chrome for Playwright. Bundled orchestration
 scripts need Bun and explicit dependency setup. Forge workflows also need
@@ -52,23 +57,41 @@ Installation does not change global configuration or copy credentials.
 Start OpenCode from your target project:
 
 ```sh
-opencode run --agent poteto --model openai/gpt-6-astra#high "Your task"
+opencode run --agent poteto --model openai/gpt-6.1-sol#high "Your task"
 ```
 
 For existing sessions, select `poteto` and the desired model explicitly.
 Use `@pstack-poteto-help` for workflows and `@pstack-setup-pstack` for model setup.
+Policy edits do not switch the current session's selected model.
+
+For an attended first task, ask poteto to inspect a small subsystem, propose a
+local change, and verify it with an independent reviewer. Keep commits, pushes,
+and external writes outside that task. Native delegates can work on the current
+uncommitted files. Container workers cannot.
 
 ## Agents
 
 Native Markdown definitions live in `agents/`, with model, mode, and permissions
 in frontmatter:
 
-| Agent | Role |
-| --- | --- |
-| `poteto` | Primary coordinator |
-| `poteto-agent` | Bounded implementation |
-| `poteto-reviewer` | Read-only review |
-| `poteto-investigator` | Connected-source investigation |
+| Agent | Role | Default task |
+| --- | --- | --- |
+| `poteto` | Primary coordinator | `coordination` |
+| `poteto-agent` | Bounded implementation | `implementation` |
+| `poteto-reviewer` | Read-only review | `review` |
+| `poteto-investigator` | Connected-source investigation | `investigation` |
+
+Use `@pstack-setup-pstack` to change the project policy after discovering exact
+model IDs and variants. From the bundle root, synchronize and check defaults:
+
+```sh
+node scripts/sync_models.mjs
+node scripts/sync_models.mjs --check
+```
+
+Native delegates pass the chosen task's exact model to `subagent`. Workers accept
+optional `task` and default by role. Neither route changes role permissions or
+forces the parent model. Panels use distinct implementation and review models.
 
 Shared settings live in `opencode.json`. For development in this repository,
 `.opencode/agents → ../agents` enables discovery without duplicate definitions.
@@ -85,6 +108,10 @@ python3 scripts/check_permissions.py
 PSTACK_PORTABILITY_TEST=1 node --test tests/portability.test.js
 ```
 
+`npm test` runs test files serially. For a bounded run with a memory cap, timeout, and
+leftover check, use `scripts/gated-run.sh -- npm test`. Installed-server and container
+checks remain opt-in.
+
 OpenCode integration tests and the permission checker use test-owned servers,
 private configuration and credentials, and disabled MCPs. They make no model
 calls. The permission checker creates only isolated sessions and does not execute
@@ -97,14 +124,15 @@ runs, ownership checks, and cleanup limits after crashes.
 
 ## Limits and documentation
 
-- Full upstream parity is unfinished. Hosted Bugbot, cloud workers, and desktop
-  or mobile drivers are not included.
-- Container execution is offline and starts from a committed ref. Uncommitted
-  parent changes are excluded. Model requests use the host's existing sign-in.
-- Runtime API transport currently targets the shared local OpenCode service.
-- Agents do not commit or push. External writes and destructive actions require
-  specific approval.
-
-See the [portability and parity guide](docs/pstack-port.md),
-[container setup](container/README.md), and [work plan](docs/parity-plan.md).
-The upstream MIT license and import provenance are preserved in [vendor/pstack](vendor/pstack/).
+- **Parity status:** [docs/pstack-port.md](docs/pstack-port.md) has the capability map,
+  what has been exercised live, and the gaps.
+- Hosted Bugbot, Cursor cloud agents, automations, and desktop or mobile drivers do not
+  exist here. Skills skip those steps and say so.
+- Commits, pushes, and PR writes prompt for approval (`ask`). They are not blocked.
+- `pstack.worker` (committed-ref containers) is experimental, Linux only, and not for
+  unattended use. Native `subagent` fan-out (up to four) is the default parallel path.
+- On `opencode run`, pass `--model` for the primary; the agent file's `model` is not applied
+  to a primary session in 2.0.32.
+- See [recovery boundaries](docs/worker-recovery.md), [model policy](docs/model-policy.md),
+  [container setup](container/README.md), and
+  [integration test isolation](docs/integration-test-isolation.md).

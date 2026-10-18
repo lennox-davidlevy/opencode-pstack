@@ -4,8 +4,7 @@
   "skills": ["./skills"],
   "plugins": ["./plugins/pstack"],
   "permissions": [
-    { "action": "skill", "resource": "*", "effect": "deny" },
-    { "action": "skill", "resource": "pstack-*", "effect": "allow" },
+    { "action": "skill", "resource": "*", "effect": "allow" },
     { "action": "pstack_history", "resource": "*", "effect": "allow" },
     { "action": "pstack_schedule", "resource": "*", "effect": "ask" },
     { "action": "pstack_wakeup", "resource": "*", "effect": "allow" },
@@ -63,8 +62,8 @@
     { "action": "shell", "resource": "podman * rm *", "effect": "ask" },
     { "action": "shell", "resource": "podman * prune *", "effect": "ask" },
     { "action": "shell", "resource": "podman compose *down*", "effect": "ask" },
-    { "action": "shell", "resource": "git commit *", "effect": "deny" },
-    { "action": "shell", "resource": "git push *", "effect": "deny" }
+    { "action": "shell", "resource": "git commit *", "effect": "ask" },
+    { "action": "shell", "resource": "git push *", "effect": "ask" }
   ],
   "websearch": { "provider": "random" },
   "mcp": {
