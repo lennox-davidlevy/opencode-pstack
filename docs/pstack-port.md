@@ -38,10 +38,14 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 - Full PR loop on a private GitHub scratch repo: red CI on master, poteto fixed it on a branch,
   opened a ready PR with `gh`, babysat CI to green, and had `poteto-reviewer` review the diff.
 - `pstack.loop`: two scheduled wakeups delivered in a live session.
+- Autopilot-full: two independent items, one `poteto-agent` owner each in its own git worktree
+  (cap of 2 children respected), independent `poteto-reviewer`, two ready PRs. CI on both was red
+  only from the unrelated failing test on master, which the run left alone as out of scope.
+  Cursor-only steps (cloud agents, Bugbot, merge) were skipped and reported.
 
 ## Known gaps and next work
 
-- Pilot the remaining playbooks: autopilot, hillclimb, `watch-pr` after `bun install`,
+- Pilot the remaining playbooks: hillclimb, autopilot with a merge, `watch-pr` after `bun install`,
   PTY-driven app verification.
 - Container workers: only for committed refs, Linux, two at a time, not for unattended use.
   See `docs/worker-recovery.md` and `container/README.md`.
