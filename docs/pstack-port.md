@@ -37,6 +37,12 @@ Unit and integration suite (`npm test`, 281 tests), `PSTACK_PORTABILITY_TEST=1` 
 - Shipping: commit and push to a remote, hash verified on the remote.
 - Full PR loop on a private GitHub scratch repo: red CI on master, poteto fixed it on a branch,
   opened a ready PR with `gh`, babysat CI to green, and had `poteto-reviewer` review the diff.
+- Hillclimb: measured baseline, two attempts with a ledger, kept call-local memoization (`fib(32)`
+  12.95 ms to 0.04 ms, identical outputs), reverted a faster variant that changed error behavior.
+- PTY: `pstack.terminal` drove an interactive readline program (start, read prompt, send input,
+  read reply, close) as the `control-cli` mapping.
+- Interrogate / how: panel review and explainer via `poteto-reviewer` subagents, read-only,
+  at most two children at once.
 - `pstack.loop`: two scheduled wakeups delivered in a live session.
 - Autopilot-full: two independent items, one `poteto-agent` owner each in its own git worktree
   (cap of 2 children respected), independent `poteto-reviewer`, two ready PRs. CI on both was red
